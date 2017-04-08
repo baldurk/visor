@@ -88,8 +88,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // clang-format off
     float pos[] = {
       sinf(time + M_PI*0.0f/3.0f), cosf(time + M_PI*0.0f/3.0f), 0.0f, 1.0f,
-      sinf(time + M_PI*2.0f/3.0f), cosf(time + M_PI*2.0f/3.0f), 0.0f, 1.0f,
       sinf(time + M_PI*4.0f/3.0f), cosf(time + M_PI*4.0f/3.0f), 0.0f, 1.0f,
+      sinf(time + M_PI*2.0f/3.0f), cosf(time + M_PI*2.0f/3.0f), 0.0f, 1.0f,
     };
     // clang-format on
 

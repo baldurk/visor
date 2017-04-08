@@ -60,23 +60,20 @@ void MinMax(const std::vector<int4> &coords, int4 &minwin, int4 &maxwin)
   }
 }
 
-float4 cross(float4 a, float4 b)
+int4 cross(int4 a, int4 b)
 {
-  return float4((a.y * b.z) - (b.y * a.z), (a.z * b.x) - (b.z * a.x), (a.x * b.y) - (b.x * a.y),
-                1.0f);
+  return int4((a.y * b.z) - (b.y * a.z), (a.z * b.x) - (b.z * a.x), (a.x * b.y) - (b.x * a.y), 1);
 }
 
-float4 barycentric(int4 *verts, int4 pixel)
+int4 barycentric(int4 *verts, int4 pixel)
 {
-  float4 u = cross(float4(float(verts[2].x - verts[0].x), float(verts[1].x - verts[0].x),
-                          float(verts[0].x - pixel.x), 1.0f),
-                   float4(float(verts[2].y - verts[0].y), float(verts[1].y - verts[0].y),
-                          float(verts[0].y - pixel.y), 1.0f));
+  int4 u = cross(int4(verts[1].x - verts[0].x, verts[2].x - verts[0].x, verts[0].x - pixel.x, 1),
+                 int4(verts[1].y - verts[0].y, verts[2].y - verts[0].y, verts[0].y - pixel.y, 1));
 
-  if(std::abs(u.z) < 1)
-    return float4(-1.0f, -1.0f, -1.0f, -1.0f);
+  if(u.z == 0)
+    return int4(-1, -1, -1, -1);
 
-  return float4(1.0f - (u.x + u.y) / u.z, u.y / u.z, u.x / u.z, 1.0f);
+  return int4(u.y, u.x, u.z - (u.x + u.y), u.z);
 }
 
 void DrawTriangle(Image *target, const float *pos, size_t posCount)
@@ -99,13 +96,19 @@ void DrawTriangle(Image *target, const float *pos, size_t posCount)
   {
     for(int x = minwin.x; x < maxwin.x; x++)
     {
-      float4 b = barycentric(winCoords.data(), int4(x, y, 0, 0));
+      int4 b = barycentric(winCoords.data(), int4(x, y, 0, 0));
 
       if(b.x > 0.0f && b.y > 0.0f && b.z > 0.0f)
       {
-        bits[y * w * 4 + x * 4 + 0] = byte(b.x * 256);
-        bits[y * w * 4 + x * 4 + 1] = byte(b.y * 256);
-        bits[y * w * 4 + x * 4 + 2] = byte(b.z * 256);
+        // normalise the barycentrics
+        float4 n = float4(float(b.x), float(b.y), float(b.z), float(b.w));
+        n.x /= n.w;
+        n.y /= n.w;
+        n.z /= n.w;
+
+        bits[y * w * 4 + x * 4 + 0] = byte(n.x * 256);
+        bits[y * w * 4 + x * 4 + 1] = byte(n.y * 256);
+        bits[y * w * 4 + x * 4 + 2] = byte(n.z * 256);
       }
       else
       {

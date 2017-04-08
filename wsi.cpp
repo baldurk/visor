@@ -12,7 +12,7 @@ Swapchain::~Swapchain()
 SwapImage::SwapImage(HWND wnd, HDC windc) : Image(1, 1)
 {
   RECT rect = {};
-  GetWindowRect(wnd, &rect);
+  GetClientRect(wnd, &rect);
 
   width = rect.right - rect.left;
   height = rect.bottom - rect.top;

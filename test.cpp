@@ -98,8 +98,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     Present(swap, bbidx);
 
     time += 0.01f;
-
-    Sleep(40);
   }
 
   Destroy(swap);

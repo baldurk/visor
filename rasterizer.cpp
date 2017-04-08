@@ -1,6 +1,4 @@
 #include "rasterizer.h"
-#include <assert.h>
-#include "graphics.h"
 
 Image::Image(uint32_t w, uint32_t h) : width(w), height(h)
 {

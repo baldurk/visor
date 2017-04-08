@@ -1,6 +1,5 @@
 #pragma once
 
-#include <vector>
 #include "rasterizer.h"
 
 struct SwapImage : public Image

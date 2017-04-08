@@ -1,5 +1,4 @@
 #include "wsi.h"
-#include <assert.h>
 
 Swapchain::~Swapchain()
 {

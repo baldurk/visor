@@ -77,7 +77,7 @@ int4 barycentric(int4 *verts, int4 pixel)
   if(u.z == 0)
     return int4(-1, -1, -1, -1);
 
-  return int4(u.y, u.x, u.z - (u.x + u.y), u.z);
+  return int4(u.z - (u.x + u.y), u.x, u.y, u.z);
 }
 
 void DrawTriangle(Image *target, const float *pos, size_t posCount)

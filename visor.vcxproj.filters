@@ -5,6 +5,7 @@
     <ClCompile Include="rasterizer.cpp" />
     <ClCompile Include="wsi.cpp" />
     <ClCompile Include="3rdparty\microprofile.cpp" />
+    <ClCompile Include="graphics.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="graphics.h" />

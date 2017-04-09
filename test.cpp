@@ -54,6 +54,68 @@ HWND create_window(HINSTANCE inst, LONG w, LONG h)
   return wnd;
 }
 
+Image *LoadTexture(const char *filename)
+{
+  FILE *f = fopen(filename, "rb");
+  if(!f)
+    return NULL;
+
+  char header[256];
+  char *line = fgets(header, 256, f);
+  if(!line || strncmp(header, "P6\n", 3))
+  {
+    fclose(f);
+    return NULL;
+  }
+
+  do
+  {
+    line = fgets(header, 256, f);
+    if(!line)
+    {
+      fclose(f);
+      return NULL;
+    }
+  } while(!strncmp(header, "#", 1));
+
+  uint32_t width = 1, height = 1;
+  sscanf(header, "%u %u", &width, &height);
+  if(width < 1 || width > 2048 || height < 1 || height > 2048)
+  {
+    fclose(f);
+    return NULL;
+  }
+
+  char *format = fgets(header, 256, f);
+  if(!format || strncmp(header, "255\n", 3))
+  {
+    fclose(f);
+    return NULL;
+  }
+
+  byte *rgba = new byte[width * height * 4];
+
+  for(uint32_t y = 0; y < height; y++)
+  {
+    uint8_t *rowPtr = rgba;
+
+    for(uint32_t x = 0; x < width; x++)
+    {
+      fread(rowPtr, 3, 1, f);
+      rowPtr += 4;
+    }
+
+    rgba += width * 4;
+  }
+
+  rgba -= width * height * 4;
+
+  fclose(f);
+  Image *ret = MakeImage(width, height, rgba);
+  delete[] rgba;
+  return ret;
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
   HWND wnd = create_window(hInstance, 500, 500);
@@ -65,6 +127,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
   Image *images[2] = {
       GetImage(swap, 0), GetImage(swap, 1),
   };
+
+  Image *tex = LoadTexture("lunarg.ppm");
 
   float time = 0.0f;
 
@@ -126,7 +190,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     {
       MICROPROFILE_SCOPEI("test", "DrawTriangle", MP_YELLOW);
 
-      DrawTriangle(images[bbidx], 36, pos, UV, MVP);
+      DrawTriangle(images[bbidx], 36, pos, UV, MVP, tex);
     }
 
     Present(swap, bbidx);

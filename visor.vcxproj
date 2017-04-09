@@ -157,6 +157,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="3rdparty\microprofile.cpp" />
+    <ClCompile Include="graphics.cpp" />
     <ClCompile Include="rasterizer.cpp" />
     <ClCompile Include="test.cpp" />
     <ClCompile Include="wsi.cpp" />

@@ -117,15 +117,52 @@ int4 barycentric(const int4 *verts, const int4 &pixel)
   return int4(u.z - (u.x + u.y), u.x, u.y, u.z);
 }
 
-float4 PixelShader(float4 bary, float pixdepth, const float4 *homog, const float *UV)
+float4 PixelShader(float4 bary, float pixdepth, const float4 *homog, const float *UV, const Image *tex)
 {
-  float attr0 = dot(bary, float4(UV[0], UV[4], UV[8], 0.0f));
-  float attr1 = dot(bary, float4(UV[1], UV[5], UV[9], 0.0f));
+  MICROPROFILE_SCOPEI("rasterizer", "PixelShader", MP_WHITE);
 
-  return float4(attr0, attr1, 0.0f, 1.0f);
+  float u = dot(bary, float4(UV[0], UV[4], UV[8], 0.0f));
+  float v = dot(bary, float4(UV[1], UV[5], UV[9], 0.0f));
+
+  if(tex == NULL)
+    return float4(u, v, 0.0f, 1.0f);
+
+  u *= tex->width;
+  v *= tex->height;
+
+  int iu0 = int(u);
+  int iv0 = int(v);
+  int iu1 = iu0 + 1;
+  int iv1 = iv0 + 1;
+
+  float fu = u - float(iu0);
+  float fv = v - float(iv0);
+
+  byte *TL = &tex->pixels[(iv0 * tex->width + iu0) * 4];
+  byte *TR = &tex->pixels[(iv0 * tex->width + iu1) * 4];
+  byte *BL = &tex->pixels[(iv0 * tex->width + iu0) * 4];
+  byte *BR = &tex->pixels[(iv1 * tex->width + iu1) * 4];
+
+  float4 top;
+  top.x = float(TL[0]) * fu + float(TR[0]) * (1.0f - fu);
+  top.y = float(TL[1]) * fu + float(TR[1]) * (1.0f - fu);
+  top.z = float(TL[1]) * fu + float(TR[1]) * (1.0f - fu);
+
+  float4 bottom;
+  bottom.x = float(BL[0]) * fu + float(BR[0]) * (1.0f - fu);
+  bottom.y = float(BL[1]) * fu + float(BR[1]) * (1.0f - fu);
+  bottom.z = float(BL[1]) * fu + float(BR[1]) * (1.0f - fu);
+
+  float4 ret;
+  ret.x = top.x * fv + bottom.x * (1.0f - fv);
+  ret.y = top.y * fv + bottom.y * (1.0f - fv);
+  ret.z = top.z * fv + bottom.z * (1.0f - fv);
+
+  return ret;
 }
 
-void DrawTriangle(Image *target, int numVerts, const float *pos, const float *UV, const float *MVP)
+void DrawTriangle(Image *target, int numVerts, const float *pos, const float *UV, const float *MVP,
+                  const Image *tex)
 {
   byte *bits = target->pixels;
   const uint32_t w = target->width;
@@ -180,11 +217,11 @@ void DrawTriangle(Image *target, int numVerts, const float *pos, const float *UV
 
           float pixdepth = n.x * depth.x + n.y * depth.y + n.z * depth.z;
 
-          float4 pix = PixelShader(n, pixdepth, homog, UV);
+          float4 pix = PixelShader(n, pixdepth, homog, UV, tex);
 
-          bits[y * w * 4 + x * 4 + 2] = byte(pix.x * 256);
-          bits[y * w * 4 + x * 4 + 1] = byte(pix.y * 256);
-          bits[y * w * 4 + x * 4 + 0] = byte(pix.z * 256);
+          bits[y * w * 4 + x * 4 + 2] = byte(pix.x);
+          bits[y * w * 4 + x * 4 + 1] = byte(pix.y);
+          bits[y * w * 4 + x * 4 + 0] = byte(pix.z);
 
           written++;
         }

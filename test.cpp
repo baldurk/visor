@@ -93,11 +93,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     };
     // clang-format on
 
-    DrawTriangle(images[bbidx], pos, sizeof(pos) / sizeof(float));
+    {
+      MICROPROFILE_SCOPEI("test", "DrawTriangle", MP_YELLOW);
+
+      DrawTriangle(images[bbidx], pos, sizeof(pos) / sizeof(float));
+    }
 
     Present(swap, bbidx);
 
     time += 0.01f;
+
+    MicroProfileFlip(NULL);
   }
 
   Destroy(swap);

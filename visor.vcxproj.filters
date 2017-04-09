@@ -4,10 +4,13 @@
     <ClCompile Include="test.cpp" />
     <ClCompile Include="rasterizer.cpp" />
     <ClCompile Include="wsi.cpp" />
+    <ClCompile Include="3rdparty\microprofile.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="graphics.h" />
     <ClInclude Include="rasterizer.h" />
     <ClInclude Include="wsi.h" />
+    <ClInclude Include="3rdparty\microprofile.h" />
+    <ClInclude Include="3rdparty\microprofile_html.h" />
   </ItemGroup>
 </Project>

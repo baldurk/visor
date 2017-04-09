@@ -25,6 +25,8 @@ Image::~Image()
 
 std::vector<int4> ToWindow(uint32_t w, uint32_t h, const float *pos, size_t posCount)
 {
+  MICROPROFILE_SCOPEI("rasterizer", "ToWindow", MP_GREEN);
+
   std::vector<int4> ret;
 
   for(size_t v = 0; v < posCount; v += 4)
@@ -43,6 +45,8 @@ std::vector<int4> ToWindow(uint32_t w, uint32_t h, const float *pos, size_t posC
 
 void MinMax(const std::vector<int4> &coords, int4 &minwin, int4 &maxwin)
 {
+  MICROPROFILE_SCOPEI("rasterizer", "MinMax", MP_PURPLE);
+
   minwin = {INT_MAX, INT_MAX, INT_MAX, INT_MAX};
   maxwin = {INT_MIN, INT_MIN, INT_MIN, INT_MIN};
 
@@ -87,35 +91,53 @@ void DrawTriangle(Image *target, const float *pos, size_t posCount)
   int4 minwin, maxwin;
   MinMax(winCoords, minwin, maxwin);
 
-  memset(bits, 0x80, w * h * 4);
+  {
+    MICROPROFILE_SCOPEI("rasterizer", "clear RTV", MP_RED);
+    memset(bits, 0x80, w * h * 4);
+  }
 
   assert(minwin.x >= 0 && maxwin.x <= (int)w);
   assert(minwin.y >= 0 && maxwin.y <= (int)h);
 
-  for(int y = minwin.y; y < maxwin.y; y++)
   {
-    for(int x = minwin.x; x < maxwin.x; x++)
+    MICROPROFILE_SCOPEI("rasterizer", "MainLoop", MP_BLUE);
+
+    int written = 0, tested = 0;
+    MICROPROFILE_COUNTER_SET("rasterizer/pixels/tested", tested);
+    MICROPROFILE_COUNTER_SET("rasterizer/pixels/written", written);
+
+    for(int y = minwin.y; y < maxwin.y; y++)
     {
-      int4 b = barycentric(winCoords.data(), int4(x, y, 0, 0));
-
-      if(b.x > 0.0f && b.y > 0.0f && b.z > 0.0f)
+      for(int x = minwin.x; x < maxwin.x; x++)
       {
-        // normalise the barycentrics
-        float4 n = float4(float(b.x), float(b.y), float(b.z), float(b.w));
-        n.x /= n.w;
-        n.y /= n.w;
-        n.z /= n.w;
+        int4 b = barycentric(winCoords.data(), int4(x, y, 0, 0));
 
-        bits[y * w * 4 + x * 4 + 0] = byte(n.x * 256);
-        bits[y * w * 4 + x * 4 + 1] = byte(n.y * 256);
-        bits[y * w * 4 + x * 4 + 2] = byte(n.z * 256);
-      }
-      else
-      {
-        bits[y * w * 4 + x * 4 + 0] = 0x40;
-        bits[y * w * 4 + x * 4 + 1] = 0x40;
-        bits[y * w * 4 + x * 4 + 2] = 0x40;
+        if(b.x > 0.0f && b.y > 0.0f && b.z > 0.0f)
+        {
+          // normalise the barycentrics
+          float4 n = float4(float(b.x), float(b.y), float(b.z), float(b.w));
+          n.x /= n.w;
+          n.y /= n.w;
+          n.z /= n.w;
+
+          bits[y * w * 4 + x * 4 + 0] = byte(n.x * 256);
+          bits[y * w * 4 + x * 4 + 1] = byte(n.y * 256);
+          bits[y * w * 4 + x * 4 + 2] = byte(n.z * 256);
+
+          written++;
+        }
+        else
+        {
+          bits[y * w * 4 + x * 4 + 0] = 0x40;
+          bits[y * w * 4 + x * 4 + 1] = 0x40;
+          bits[y * w * 4 + x * 4 + 2] = 0x40;
+        }
+
+        tested++;
       }
     }
+
+    MICROPROFILE_COUNTER_SET("rasterizer/pixels/tested", tested);
+    MICROPROFILE_COUNTER_SET("rasterizer/pixels/written", written);
   }
 }

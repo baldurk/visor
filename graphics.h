@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <algorithm>
 #include <vector>
+#include "3rdparty/microprofile.h"
 
 typedef unsigned char byte;
 

@@ -26,7 +26,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
@@ -39,7 +39,7 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
@@ -94,7 +94,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalOptions>/DMICROPROFILE_GPU_TIMERS=0 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/DMICROPROFILE_GPU_TIMERS=0 /DVK_USE_PLATFORM_WIN32_KHR=1 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -109,7 +109,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalOptions>/DMICROPROFILE_GPU_TIMERS=0 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/DMICROPROFILE_GPU_TIMERS=0 /DVK_USE_PLATFORM_WIN32_KHR=1 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -158,16 +158,26 @@
   <ItemGroup>
     <ClCompile Include="3rdparty\microprofile.cpp" />
     <ClCompile Include="graphics.cpp" />
+    <ClCompile Include="icd_query.cpp" />
+    <ClCompile Include="icd_stubs.cpp" />
+    <ClCompile Include="icd_wsi.cpp" />
     <ClCompile Include="rasterizer.cpp" />
-    <ClCompile Include="test.cpp" />
+    <ClCompile Include="icd_interface.cpp" />
     <ClCompile Include="wsi.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="3rdparty\microprofile.h" />
     <ClInclude Include="3rdparty\microprofile_html.h" />
+    <ClInclude Include="3rdparty\vk_icd.h" />
+    <ClInclude Include="3rdparty\vk_platform.h" />
+    <ClInclude Include="3rdparty\vulkan.h" />
     <ClInclude Include="graphics.h" />
+    <ClInclude Include="icd_common.h" />
     <ClInclude Include="rasterizer.h" />
     <ClInclude Include="wsi.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="visor.json" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

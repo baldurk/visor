@@ -56,7 +56,7 @@ HWND create_window(HINSTANCE inst, LONG w, LONG h)
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
-  HWND wnd = create_window(hInstance, 400, 400);
+  HWND wnd = create_window(hInstance, 500, 500);
 
   ShowWindow(wnd, SW_SHOW);
   UpdateWindow(wnd);
@@ -85,18 +85,48 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     int bbidx = Acquire(swap);
 
-    // clang-format off
-    float pos[] = {
-      sinf(time + M_PI*0.0f/3.0f), cosf(time + M_PI*0.0f/3.0f), 0.0f, 1.0f,
-      sinf(time + M_PI*4.0f/3.0f), cosf(time + M_PI*4.0f/3.0f), 0.0f, 1.0f,
-      sinf(time + M_PI*2.0f/3.0f), cosf(time + M_PI*2.0f/3.0f), 0.0f, 1.0f,
+    // data from vkcube
+    float MVP[] = {
+        -0.58406f, 0.00f,     -2.34251f, 0.00f,    1.20521f,  -2.07017f, -0.30049f, 0.00f,
+        -0.83369f, -0.51553f, 0.20786f,  5.64243f, -0.83203f, -0.5145f,  0.20745f,  5.83095f,
     };
-    // clang-format on
+
+    float pos[] = {
+        -1.00f, -1.00f, -1.00f, +1.00f, -1.00f, -1.00f, +1.00f, +1.00f, -1.00f, +1.00f, +1.00f,
+        +1.00f, -1.00f, +1.00f, +1.00f, +1.00f, -1.00f, +1.00f, -1.00f, +1.00f, -1.00f, -1.00f,
+        -1.00f, +1.00f, -1.00f, -1.00f, -1.00f, +1.00f, +1.00f, +1.00f, -1.00f, +1.00f, +1.00f,
+        -1.00f, -1.00f, +1.00f, -1.00f, -1.00f, -1.00f, +1.00f, -1.00f, +1.00f, -1.00f, +1.00f,
+        +1.00f, +1.00f, -1.00f, +1.00f, -1.00f, -1.00f, -1.00f, +1.00f, +1.00f, -1.00f, -1.00f,
+        +1.00f, +1.00f, -1.00f, +1.00f, +1.00f, -1.00f, -1.00f, -1.00f, +1.00f, +1.00f, -1.00f,
+        +1.00f, +1.00f, -1.00f, -1.00f, +1.00f, +1.00f, -1.00f, +1.00f, -1.00f, +1.00f, -1.00f,
+        +1.00f, +1.00f, +1.00f, +1.00f, +1.00f, +1.00f, +1.00f, -1.00f, +1.00f, -1.00f, +1.00f,
+        +1.00f, +1.00f, +1.00f, +1.00f, +1.00f, +1.00f, -1.00f, +1.00f, +1.00f, +1.00f, -1.00f,
+        +1.00f, +1.00f, +1.00f, +1.00f, +1.00f, +1.00f, -1.00f, +1.00f, +1.00f, +1.00f, -1.00f,
+        +1.00f, +1.00f, +1.00f, -1.00f, -1.00f, +1.00f, +1.00f, +1.00f, -1.00f, +1.00f, -1.00f,
+        +1.00f, +1.00f, +1.00f, -1.00f, -1.00f, +1.00f, +1.00f, +1.00f, +1.00f, +1.00f, +1.00f,
+        -1.00f, -1.00f, +1.00f, +1.00f, +1.00f, -1.00f, +1.00f, +1.00f, +1.00f, +1.00f, +1.00f,
+        +1.00f,
+    };
+
+    float UV[] = {
+        0.00f, 1.00f, 0.00f, 0.00f, 1.00f, 1.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f, 0.00f,
+        1.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f,
+        1.00f, 1.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f,
+        1.00f, 1.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f,
+        1.00f, 0.00f, 0.00f, 0.00f, 1.00f, 1.00f, 0.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f,
+        1.00f, 0.00f, 0.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f,
+        1.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f,
+        1.00f, 0.00f, 0.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f, 1.00f, 1.00f, 0.00f, 0.00f,
+        1.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f,
+        0.00f, 1.00f, 0.00f, 0.00f, 1.00f, 1.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f, 0.00f,
+        0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f, 0.00f,
+        0.00f, 1.00f, 0.00f, 0.00f, 1.00f, 1.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f, 0.00f,
+    };
 
     {
       MICROPROFILE_SCOPEI("test", "DrawTriangle", MP_YELLOW);
 
-      DrawTriangle(images[bbidx], pos, sizeof(pos) / sizeof(float));
+      DrawTriangle(images[bbidx], 36, pos, UV, MVP);
     }
 
     Present(swap, bbidx);

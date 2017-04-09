@@ -20,5 +20,6 @@ Image *GetImage(Swapchain *swap, int index);
 void Destroy(Swapchain *swap);
 
 int Acquire(Swapchain *swap);
-void DrawTriangle(Image *backbuffer, const float *pos, size_t posCount);
+void DrawTriangle(Image *backbuffer, int numVerts, const float *pos, const float *UV,
+                  const float *MVP);
 void Present(Swapchain *swap, int index);

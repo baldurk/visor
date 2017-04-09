@@ -4,14 +4,28 @@ struct int4
 {
   int4() {}
   int4(int X, int Y, int Z, int W) : x(X), y(Y), z(Z), w(W) {}
-  int x, y, z, w;
+  union
+  {
+    struct
+    {
+      int x, y, z, w;
+    };
+    int v[4];
+  };
 };
 
 struct float4
 {
   float4() {}
   float4(float X, float Y, float Z, float W) : x(X), y(Y), z(Z), w(W) {}
-  float x, y, z, w;
+  union
+  {
+    struct
+    {
+      float x, y, z, w;
+    };
+    float v[4];
+  };
 };
 
 Image::Image(uint32_t w, uint32_t h) : width(w), height(h)
@@ -23,44 +37,62 @@ Image::~Image()
   delete[] pixels;
 }
 
-std::vector<int4> ToWindow(uint32_t w, uint32_t h, const float *pos, size_t posCount)
+std::vector<float4> VertexShader(const float *pos, int numVerts, const float *MVP)
 {
-  MICROPROFILE_SCOPEI("rasterizer", "ToWindow", MP_GREEN);
+  MICROPROFILE_SCOPEI("rasterizer", "VertexShader", MP_KHAKI);
 
-  std::vector<int4> ret;
+  std::vector<float4> ret;
 
-  for(size_t v = 0; v < posCount; v += 4)
+  for(int v = 0; v < numVerts; v++)
   {
-    int4 win = {};
+    float4 view(0.0f, 0.0f, 0.0f, 0.0f);
 
-    win.x = int((pos[0] + 1.0f) * 0.5f * w);
-    win.y = int((pos[1] + 1.0f) * 0.5f * h);
+    for(int row = 0; row < 4; row++)
+    {
+      for(int col = 0; col < 4; col++)
+        view.v[row] += MVP[row * 4 + col] * pos[col];
+    }
 
-    ret.push_back(win);
+    ret.push_back(view);
     pos += 4;
   }
 
   return ret;
 }
 
-void MinMax(const std::vector<int4> &coords, int4 &minwin, int4 &maxwin)
+std::vector<int4> ToWindow(uint32_t w, uint32_t h, const std::vector<float4> &pos)
+{
+  MICROPROFILE_SCOPEI("rasterizer", "ToWindow", MP_GREEN);
+
+  std::vector<int4> ret;
+
+  for(const float4 &v : pos)
+  {
+    int4 win(0, 0, 0, 0);
+
+    win.x = int((v.x / v.w + 1.0f) * 0.5f * w);
+    win.y = int((v.y * -1.0f / v.w + 1.0f) * 0.5f * h);
+
+    ret.push_back(win);
+  }
+
+  return ret;
+}
+
+void MinMax(const int4 *coords, int4 &minwin, int4 &maxwin)
 {
   MICROPROFILE_SCOPEI("rasterizer", "MinMax", MP_PURPLE);
 
   minwin = {INT_MAX, INT_MAX, INT_MAX, INT_MAX};
   maxwin = {INT_MIN, INT_MIN, INT_MIN, INT_MIN};
 
-  for(int i = 0; i < coords.size(); i++)
+  for(int i = 0; i < 3; i++)
   {
-    minwin.x = std::min(minwin.x, coords[i].x);
-    minwin.y = std::min(minwin.y, coords[i].y);
-    minwin.z = std::min(minwin.z, coords[i].z);
-    minwin.w = std::min(minwin.w, coords[i].w);
-
-    maxwin.x = std::max(maxwin.x, coords[i].x);
-    maxwin.y = std::max(maxwin.y, coords[i].y);
-    maxwin.z = std::max(maxwin.z, coords[i].z);
-    maxwin.w = std::max(maxwin.w, coords[i].w);
+    for(int c = 0; c < 4; c++)
+    {
+      minwin.v[c] = std::min(minwin.v[c], coords[i].v[c]);
+      maxwin.v[c] = std::max(maxwin.v[c], coords[i].v[c]);
+    }
   }
 }
 
@@ -69,7 +101,12 @@ int4 cross(int4 a, int4 b)
   return int4((a.y * b.z) - (b.y * a.z), (a.z * b.x) - (b.z * a.x), (a.x * b.y) - (b.x * a.y), 1);
 }
 
-int4 barycentric(int4 *verts, int4 pixel)
+float dot(const float4 &a, const float4 &b)
+{
+  return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+}
+
+int4 barycentric(const int4 *verts, const int4 &pixel)
 {
   int4 u = cross(int4(verts[1].x - verts[0].x, verts[2].x - verts[0].x, verts[0].x - pixel.x, 1),
                  int4(verts[1].y - verts[0].y, verts[2].y - verts[0].y, verts[0].y - pixel.y, 1));
@@ -80,37 +117,58 @@ int4 barycentric(int4 *verts, int4 pixel)
   return int4(u.z - (u.x + u.y), u.x, u.y, u.z);
 }
 
-void DrawTriangle(Image *target, const float *pos, size_t posCount)
+float4 PixelShader(float4 bary, float pixdepth, const float4 *homog, const float *UV)
+{
+  float attr0 = dot(bary, float4(UV[0], UV[4], UV[8], 0.0f));
+  float attr1 = dot(bary, float4(UV[1], UV[5], UV[9], 0.0f));
+
+  return float4(attr0, attr1, 0.0f, 1.0f);
+}
+
+void DrawTriangle(Image *target, int numVerts, const float *pos, const float *UV, const float *MVP)
 {
   byte *bits = target->pixels;
   const uint32_t w = target->width;
   const uint32_t h = target->height;
 
-  std::vector<int4> winCoords = ToWindow(w, h, pos, posCount);
+  std::vector<float4> homogCoords = VertexShader(pos, numVerts, MVP);
 
-  int4 minwin, maxwin;
-  MinMax(winCoords, minwin, maxwin);
+  std::vector<int4> winCoords = ToWindow(w, h, homogCoords);
 
   {
     MICROPROFILE_SCOPEI("rasterizer", "clear RTV", MP_RED);
     memset(bits, 0x80, w * h * 4);
   }
 
-  assert(minwin.x >= 0 && maxwin.x <= (int)w);
-  assert(minwin.y >= 0 && maxwin.y <= (int)h);
+  int written = 0, tested = 0, tris_in = 0;
+  MICROPROFILE_COUNTER_SET("rasterizer/pixels/tested", tested);
+  MICROPROFILE_COUNTER_SET("rasterizer/pixels/written", written);
+  MICROPROFILE_COUNTER_SET("rasterizer/triangles/in", tris_in);
 
+  const int4 *tri = winCoords.data();
+  const float4 *homog = homogCoords.data();
+
+  assert(winCoords.size() % 3 == 0);
+
+  for(int i = 0; i < winCoords.size(); i += 3)
   {
-    MICROPROFILE_SCOPEI("rasterizer", "MainLoop", MP_BLUE);
+    tris_in++;
 
-    int written = 0, tested = 0;
-    MICROPROFILE_COUNTER_SET("rasterizer/pixels/tested", tested);
-    MICROPROFILE_COUNTER_SET("rasterizer/pixels/written", written);
+    int4 minwin, maxwin;
+    MinMax(tri, minwin, maxwin);
+
+    float4 depth(homog[0].z / homog[0].w, homog[1].z / homog[1].w, homog[2].z / homog[2].w, 0.0f);
+
+    assert(minwin.x >= 0 && maxwin.x <= (int)w);
+    assert(minwin.y >= 0 && maxwin.y <= (int)h);
+
+    MICROPROFILE_SCOPEI("rasterizer", "TriLoop", MP_BLUE);
 
     for(int y = minwin.y; y < maxwin.y; y++)
     {
       for(int x = minwin.x; x < maxwin.x; x++)
       {
-        int4 b = barycentric(winCoords.data(), int4(x, y, 0, 0));
+        int4 b = barycentric(tri, int4(x, y, 0, 0));
 
         if(b.x > 0.0f && b.y > 0.0f && b.z > 0.0f)
         {
@@ -120,24 +178,27 @@ void DrawTriangle(Image *target, const float *pos, size_t posCount)
           n.y /= n.w;
           n.z /= n.w;
 
-          bits[y * w * 4 + x * 4 + 0] = byte(n.x * 256);
-          bits[y * w * 4 + x * 4 + 1] = byte(n.y * 256);
-          bits[y * w * 4 + x * 4 + 2] = byte(n.z * 256);
+          float pixdepth = n.x * depth.x + n.y * depth.y + n.z * depth.z;
+
+          float4 pix = PixelShader(n, pixdepth, homog, UV);
+
+          bits[y * w * 4 + x * 4 + 2] = byte(pix.x * 256);
+          bits[y * w * 4 + x * 4 + 1] = byte(pix.y * 256);
+          bits[y * w * 4 + x * 4 + 0] = byte(pix.z * 256);
 
           written++;
-        }
-        else
-        {
-          bits[y * w * 4 + x * 4 + 0] = 0x40;
-          bits[y * w * 4 + x * 4 + 1] = 0x40;
-          bits[y * w * 4 + x * 4 + 2] = 0x40;
         }
 
         tested++;
       }
     }
 
-    MICROPROFILE_COUNTER_SET("rasterizer/pixels/tested", tested);
-    MICROPROFILE_COUNTER_SET("rasterizer/pixels/written", written);
+    tri += 3;
+    homog += 3;
+    UV += 3 * 4;
   }
+
+  MICROPROFILE_COUNTER_SET("rasterizer/pixels/tested", tested);
+  MICROPROFILE_COUNTER_SET("rasterizer/pixels/written", written);
+  MICROPROFILE_COUNTER_SET("rasterizer/triangles/in", tris_in);
 }

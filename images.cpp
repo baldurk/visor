@@ -5,16 +5,16 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateImageView(VkDevice device,
                                                  const VkAllocationCallbacks *pAllocator,
                                                  VkImageView *pImageView)
 {
-  // TODO but for now return unique values
-  static uint64_t nextImageView = 1;
-  *pImageView = (VkImageView)(nextImageView++);
+  VkImageView ret = new VkImageView_T;
+  ret->image = pCreateInfo->image;
+  *pImageView = ret;
   return VK_SUCCESS;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkDestroyImageView(VkDevice device, VkImageView imageView,
                                               const VkAllocationCallbacks *pAllocator)
 {
-  // nothing to do
+  delete imageView;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,

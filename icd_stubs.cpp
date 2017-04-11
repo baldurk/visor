@@ -40,6 +40,9 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice(VkPhysicalDevice physicalDevice,
 
 VKAPI_ATTR void VKAPI_CALL vkDestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
 {
+  for(VK_LOADER_DATA *q : device->queues)
+    delete q;
+
   delete device;
 }
 

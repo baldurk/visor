@@ -175,7 +175,6 @@
     <ClInclude Include="3rdparty\vk_platform.h" />
     <ClInclude Include="3rdparty\vulkan.h" />
     <ClInclude Include="precompiled.h" />
-    <ClInclude Include="icd_common.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="visor.json" />

@@ -20,12 +20,6 @@ typedef unsigned char byte;
 
 struct VkDevice_T
 {
-  ~VkDevice_T()
-  {
-    for(VK_LOADER_DATA *q : queues)
-      delete q;
-  }
-
   uintptr_t loaderMagic;
   std::vector<VK_LOADER_DATA *> queues;
 };
@@ -37,29 +31,34 @@ struct VkCommandBuffer_T
 
 struct VkDeviceMemory_T
 {
-  VkDeviceSize size;
-  byte *bytes;
+  VkDeviceSize size = 0;
+  byte *bytes = NULL;
 };
 
 struct VkImage_T
 {
-  VkExtent2D extent;
+  VkExtent2D extent = {0, 0};
   byte *pixels = NULL;
+};
+
+struct VkImageView_T
+{
+  VkImage_T *image = NULL;
 };
 
 struct VkBuffer_T
 {
-  VkDeviceSize size;
+  VkDeviceSize size = 0;
 };
 
 struct VkSwapchainKHR_T
 {
-  VkExtent2D extent;
+  VkExtent2D extent = {0, 0};
 
   struct Backbuffer
   {
-    VkImage im;
-    VkDeviceMemory mem;
+    VkImage im = VK_NULL_HANDLE;
+    VkDeviceMemory mem = VK_NULL_HANDLE;
 
 #if defined(_WIN32)
     HDC dc = NULL;

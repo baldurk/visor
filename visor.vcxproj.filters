@@ -14,7 +14,6 @@
     <ClCompile Include="query.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="icd_common.h" />
     <ClInclude Include="precompiled.h" />
     <ClInclude Include="3rdparty\vk_platform.h">
       <Filter>3rdparty\vulkan</Filter>

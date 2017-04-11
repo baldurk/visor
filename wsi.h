@@ -1,11 +1,14 @@
 #pragma once
 
-#include "rasterizer.h"
+#include "graphics.h"
 
-struct SwapImage : public Image
+struct SwapImage
 {
   SwapImage(HWND wnd, HDC windc);
   ~SwapImage();
+
+  uint32_t width = 0, height = 0;
+  byte *pixels = NULL;
 
   HDC dc = NULL;
   HBITMAP bmp = NULL;

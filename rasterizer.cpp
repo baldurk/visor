@@ -1,4 +1,4 @@
-#include "rasterizer.h"
+#include "graphics.h"
 
 struct int4
 {
@@ -27,15 +27,6 @@ struct float4
     float v[4];
   };
 };
-
-Image::Image(uint32_t w, uint32_t h) : width(w), height(h)
-{
-}
-
-Image::~Image()
-{
-  delete[] pixels;
-}
 
 std::vector<float4> VertexShader(const float *pos, int numVerts, const float *MVP)
 {
@@ -116,6 +107,12 @@ int4 barycentric(const int4 *verts, const int4 &pixel)
 
   return int4(u.z - (u.x + u.y), u.x, u.y, u.z);
 }
+
+struct Image
+{
+  uint32_t width, height;
+  byte *pixels;
+};
 
 float4 PixelShader(float4 bary, float pixdepth, const float4 *homog, const float *UV, const Image *tex)
 {

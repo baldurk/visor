@@ -2,14 +2,14 @@
 
 Swapchain::~Swapchain()
 {
-  for(Image *i : backbuffers)
+  for(SwapImage *i : backbuffers)
     delete i;
 
   if(dc)
     ReleaseDC(wnd, dc);
 }
 
-SwapImage::SwapImage(HWND wnd, HDC windc) : Image(1, 1)
+SwapImage::SwapImage(HWND wnd, HDC windc)
 {
   RECT rect = {};
   GetClientRect(wnd, &rect);
@@ -44,8 +44,6 @@ SwapImage::~SwapImage()
 
   if(bmp)
     DeleteObject(bmp);
-
-  pixels = NULL;
 }
 
 Swapchain *CreateSwapchain(HWND wnd, int numBuffers)
@@ -72,9 +70,9 @@ int Acquire(Swapchain *swap)
   return swap->current;
 }
 
-Image *GetImage(Swapchain *swap, int index)
+byte *GetImagePixels(Swapchain *swap, int index)
 {
-  return swap->backbuffers[index];
+  return swap->backbuffers[index]->pixels;
 }
 
 void Present(Swapchain *swap, int index)

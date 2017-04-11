@@ -106,7 +106,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateSwapchainKHR(VkDevice device,
   {
     ret->images[i] = new VkImage_T();
     ret->images[i]->extent = pCreateInfo->imageExtent;
-    ret->images[i]->im = GetImage(ret->swap, (int)i);
+    ret->images[i]->pixels = GetImagePixels(ret->swap, (int)i);
   }
   ret->extent = pCreateInfo->imageExtent;
 

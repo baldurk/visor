@@ -134,39 +134,6 @@ VKAPI_ATTR VkResult VKAPI_CALL vkEndCommandBuffer(VkCommandBuffer commandBuffer)
   return VK_SUCCESS;
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL vkCreateImageView(VkDevice device,
-                                                 const VkImageViewCreateInfo *pCreateInfo,
-                                                 const VkAllocationCallbacks *pAllocator,
-                                                 VkImageView *pImageView)
-{
-  // TODO but for now return unique values
-  static uint64_t nextImageView = 1;
-  *pImageView = (VkImageView)(nextImageView++);
-  return VK_SUCCESS;
-}
-
-VKAPI_ATTR void VKAPI_CALL vkDestroyImageView(VkDevice device, VkImageView imageView,
-                                              const VkAllocationCallbacks *pAllocator)
-{
-  // nothing to do
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL vkCreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
-                                             const VkAllocationCallbacks *pAllocator, VkImage *pImage)
-{
-  VkImage ret = new VkImage_T;
-  ret->im = MakeImage(pCreateInfo->extent.width, pCreateInfo->extent.height, NULL);
-  ret->extent = {pCreateInfo->extent.width, pCreateInfo->extent.height};
-  *pImage = ret;
-  return VK_SUCCESS;
-}
-
-VKAPI_ATTR void VKAPI_CALL vkDestroyImage(VkDevice device, VkImage image,
-                                          const VkAllocationCallbacks *pAllocator)
-{
-  delete image;
-}
-
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateBuffer(VkDevice device, const VkBufferCreateInfo *pCreateInfo,
                                               const VkAllocationCallbacks *pAllocator,
                                               VkBuffer *pBuffer)
@@ -192,72 +159,11 @@ VKAPI_ATTR void VKAPI_CALL vkGetBufferMemoryRequirements(VkDevice device, VkBuff
   pMemoryRequirements->size = buffer->size;
 }
 
-VKAPI_ATTR void VKAPI_CALL vkGetImageMemoryRequirements(VkDevice device, VkImage image,
-                                                        VkMemoryRequirements *pMemoryRequirements)
-{
-  // TODO
-  pMemoryRequirements->alignment = 1;
-  pMemoryRequirements->memoryTypeBits = 0x3;
-  pMemoryRequirements->size = image->extent.width * image->extent.height * 4;
-}
-
 VKAPI_ATTR VkResult VKAPI_CALL vkBindBufferMemory(VkDevice device, VkBuffer buffer,
                                                   VkDeviceMemory memory, VkDeviceSize memoryOffset)
 {
   // TODO
   return VK_SUCCESS;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL vkBindImageMemory(VkDevice device, VkImage image,
-                                                 VkDeviceMemory memory, VkDeviceSize memoryOffset)
-{
-  // TODO
-  return VK_SUCCESS;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL vkAllocateMemory(VkDevice device,
-                                                const VkMemoryAllocateInfo *pAllocateInfo,
-                                                const VkAllocationCallbacks *pAllocator,
-                                                VkDeviceMemory *pMemory)
-{
-  VkDeviceMemory ret = new VkDeviceMemory_T;
-  ret->bytes = new byte[pAllocateInfo->allocationSize];
-  *pMemory = ret;
-  return VK_SUCCESS;
-}
-
-VKAPI_ATTR void VKAPI_CALL vkFreeMemory(VkDevice device, VkDeviceMemory memory,
-                                        const VkAllocationCallbacks *pAllocator)
-{
-  delete[] memory->bytes;
-  delete memory;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL vkMapMemory(VkDevice device, VkDeviceMemory memory,
-                                           VkDeviceSize offset, VkDeviceSize size,
-                                           VkMemoryMapFlags flags, void **ppData)
-{
-  byte *data = memory->bytes;
-  data += offset;
-  *ppData = (void *)data;
-  return VK_SUCCESS;
-}
-
-VKAPI_ATTR void VKAPI_CALL vkUnmapMemory(VkDevice device, VkDeviceMemory memory)
-{
-}
-
-VKAPI_ATTR void VKAPI_CALL vkGetImageSubresourceLayout(VkDevice device, VkImage image,
-                                                       const VkImageSubresource *pSubresource,
-                                                       VkSubresourceLayout *pLayout)
-{
-  assert(pSubresource->arrayLayer == 0 && pSubresource->mipLevel == 0 &&
-         pSubresource->aspectMask == VK_IMAGE_ASPECT_COLOR_BIT);
-
-  pLayout->offset = 0;
-  pLayout->rowPitch = image->extent.width * 4;
-  pLayout->arrayPitch = pLayout->depthPitch = pLayout->size =
-      image->extent.width * image->extent.height * 4;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateSampler(VkDevice device,

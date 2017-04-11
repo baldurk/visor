@@ -157,10 +157,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="3rdparty\microprofile.cpp" />
-    <ClCompile Include="graphics.cpp" />
+    <ClCompile Include="images.cpp" />
     <ClCompile Include="icd_query.cpp" />
     <ClCompile Include="icd_stubs.cpp" />
     <ClCompile Include="icd_wsi.cpp" />
+    <ClCompile Include="memory.cpp" />
     <ClCompile Include="rasterizer.cpp" />
     <ClCompile Include="icd_interface.cpp" />
     <ClCompile Include="wsi.cpp" />

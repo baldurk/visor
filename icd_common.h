@@ -29,9 +29,8 @@ struct VkDeviceMemory_T
 
 struct VkImage_T
 {
-  ~VkImage_T() { Destroy(im); }
-  Image *im;
   VkExtent2D extent;
+  byte *pixels = NULL;
 };
 
 struct VkBuffer_T
@@ -44,11 +43,7 @@ struct VkSwapchainKHR_T
   ~VkSwapchainKHR_T()
   {
     for(VkImage i : images)
-    {
-      // owned by the swapchain, destroyed below
-      i->im = NULL;
       delete i;
-    }
     Destroy(swap);
   }
   VkExtent2D extent;

@@ -28,7 +28,7 @@ struct float4
   };
 };
 
-std::vector<float4> VertexShader(const float *pos, int numVerts, const float *MVP)
+static std::vector<float4> VertexShader(const float *pos, int numVerts, const float *MVP)
 {
   MICROPROFILE_SCOPEI("rasterizer", "VertexShader", MP_KHAKI);
 
@@ -51,7 +51,7 @@ std::vector<float4> VertexShader(const float *pos, int numVerts, const float *MV
   return ret;
 }
 
-std::vector<int4> ToWindow(uint32_t w, uint32_t h, const std::vector<float4> &pos)
+static std::vector<int4> ToWindow(uint32_t w, uint32_t h, const std::vector<float4> &pos)
 {
   MICROPROFILE_SCOPEI("rasterizer", "ToWindow", MP_GREEN);
 
@@ -70,7 +70,7 @@ std::vector<int4> ToWindow(uint32_t w, uint32_t h, const std::vector<float4> &po
   return ret;
 }
 
-void MinMax(const int4 *coords, int4 &minwin, int4 &maxwin)
+static void MinMax(const int4 *coords, int4 &minwin, int4 &maxwin)
 {
   MICROPROFILE_SCOPEI("rasterizer", "MinMax", MP_PURPLE);
 
@@ -87,17 +87,17 @@ void MinMax(const int4 *coords, int4 &minwin, int4 &maxwin)
   }
 }
 
-int4 cross(int4 a, int4 b)
+static int4 cross(int4 a, int4 b)
 {
   return int4((a.y * b.z) - (b.y * a.z), (a.z * b.x) - (b.z * a.x), (a.x * b.y) - (b.x * a.y), 1);
 }
 
-float dot(const float4 &a, const float4 &b)
+static float dot(const float4 &a, const float4 &b)
 {
   return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 }
 
-int4 barycentric(const int4 *verts, const int4 &pixel)
+static int4 barycentric(const int4 *verts, const int4 &pixel)
 {
   int4 u = cross(int4(verts[1].x - verts[0].x, verts[2].x - verts[0].x, verts[0].x - pixel.x, 1),
                  int4(verts[1].y - verts[0].y, verts[2].y - verts[0].y, verts[0].y - pixel.y, 1));
@@ -108,13 +108,8 @@ int4 barycentric(const int4 *verts, const int4 &pixel)
   return int4(u.z - (u.x + u.y), u.x, u.y, u.z);
 }
 
-struct Image
-{
-  uint32_t width, height;
-  byte *pixels;
-};
-
-float4 PixelShader(float4 bary, float pixdepth, const float4 *homog, const float *UV, const Image *tex)
+static float4 PixelShader(float4 bary, float pixdepth, const float4 *homog, const float *UV,
+                          const VkImage tex)
 {
   MICROPROFILE_SCOPEI("rasterizer", "PixelShader", MP_WHITE);
 
@@ -124,8 +119,8 @@ float4 PixelShader(float4 bary, float pixdepth, const float4 *homog, const float
   if(tex == NULL)
     return float4(u, v, 0.0f, 1.0f);
 
-  u *= tex->width;
-  v *= tex->height;
+  u *= tex->extent.width;
+  v *= tex->extent.height;
 
   int iu0 = int(u);
   int iv0 = int(v);
@@ -135,10 +130,10 @@ float4 PixelShader(float4 bary, float pixdepth, const float4 *homog, const float
   float fu = u - float(iu0);
   float fv = v - float(iv0);
 
-  byte *TL = &tex->pixels[(iv0 * tex->width + iu0) * 4];
-  byte *TR = &tex->pixels[(iv0 * tex->width + iu1) * 4];
-  byte *BL = &tex->pixels[(iv0 * tex->width + iu0) * 4];
-  byte *BR = &tex->pixels[(iv1 * tex->width + iu1) * 4];
+  byte *TL = &tex->pixels[(iv0 * tex->extent.width + iu0) * 4];
+  byte *TR = &tex->pixels[(iv0 * tex->extent.width + iu1) * 4];
+  byte *BL = &tex->pixels[(iv0 * tex->extent.width + iu0) * 4];
+  byte *BR = &tex->pixels[(iv1 * tex->extent.width + iu1) * 4];
 
   float4 top;
   top.x = float(TL[0]) * fu + float(TR[0]) * (1.0f - fu);
@@ -158,12 +153,12 @@ float4 PixelShader(float4 bary, float pixdepth, const float4 *homog, const float
   return ret;
 }
 
-void DrawTriangle(Image *target, int numVerts, const float *pos, const float *UV, const float *MVP,
-                  const Image *tex)
+void DrawTriangle(VkImage target, int numVerts, const float *pos, const float *UV, const float *MVP,
+                  const VkImage tex)
 {
   byte *bits = target->pixels;
-  const uint32_t w = target->width;
-  const uint32_t h = target->height;
+  const uint32_t w = target->extent.width;
+  const uint32_t h = target->extent.height;
 
   std::vector<float4> homogCoords = VertexShader(pos, numVerts, MVP);
 

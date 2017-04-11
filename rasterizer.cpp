@@ -132,23 +132,23 @@ static float4 PixelShader(float4 bary, float pixdepth, const float4 *homog, cons
 
   byte *TL = &tex->pixels[(iv0 * tex->extent.width + iu0) * 4];
   byte *TR = &tex->pixels[(iv0 * tex->extent.width + iu1) * 4];
-  byte *BL = &tex->pixels[(iv0 * tex->extent.width + iu0) * 4];
+  byte *BL = &tex->pixels[(iv1 * tex->extent.width + iu0) * 4];
   byte *BR = &tex->pixels[(iv1 * tex->extent.width + iu1) * 4];
 
   float4 top;
-  top.x = float(TL[0]) * fu + float(TR[0]) * (1.0f - fu);
-  top.y = float(TL[1]) * fu + float(TR[1]) * (1.0f - fu);
-  top.z = float(TL[1]) * fu + float(TR[1]) * (1.0f - fu);
+  top.x = float(TL[0]) * (1.0f - fu) + float(TR[0]) * fu;
+  top.y = float(TL[1]) * (1.0f - fu) + float(TR[1]) * fu;
+  top.z = float(TL[1]) * (1.0f - fu) + float(TR[1]) * fu;
 
   float4 bottom;
-  bottom.x = float(BL[0]) * fu + float(BR[0]) * (1.0f - fu);
-  bottom.y = float(BL[1]) * fu + float(BR[1]) * (1.0f - fu);
-  bottom.z = float(BL[1]) * fu + float(BR[1]) * (1.0f - fu);
+  bottom.x = float(BL[0]) * (1.0f - fu) + float(BR[0]) * fu;
+  bottom.y = float(BL[1]) * (1.0f - fu) + float(BR[1]) * fu;
+  bottom.z = float(BL[1]) * (1.0f - fu) + float(BR[1]) * fu;
 
   float4 ret;
-  ret.x = top.x * fv + bottom.x * (1.0f - fv);
-  ret.y = top.y * fv + bottom.y * (1.0f - fv);
-  ret.z = top.z * fv + bottom.z * (1.0f - fv);
+  ret.x = top.x * (1.0f - fv) + bottom.x * fv;
+  ret.y = top.y * (1.0f - fv) + bottom.y * fv;
+  ret.z = top.z * (1.0f - fv) + bottom.z * fv;
 
   return ret;
 }

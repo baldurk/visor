@@ -162,6 +162,7 @@
     <ClCompile Include="buffers.cpp" />
     <ClCompile Include="cmd_alloc.cpp" />
     <ClCompile Include="cmd_record.cpp" />
+    <ClCompile Include="descriptors.cpp" />
     <ClCompile Include="images.cpp" />
     <ClCompile Include="query.cpp" />
     <ClCompile Include="icd_stubs.cpp" />

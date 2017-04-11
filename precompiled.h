@@ -86,6 +86,29 @@ struct VkBuffer_T
   byte *bytes = NULL;
 };
 
+struct VkDescriptorSetLayout_T
+{
+  uint32_t bindingCount;
+};
+
+struct VkDescriptorSet_T
+{
+  struct Bind
+  {
+    Bind() { memset(&data, 0, sizeof(data)); }
+    VkDescriptorType type = VK_DESCRIPTOR_TYPE_MAX_ENUM;
+
+    union
+    {
+      VkDescriptorImageInfo imageInfo;
+      VkDescriptorBufferInfo bufferInfo;
+      VkBufferView texelBufferView;
+    } data;
+  };
+
+  std::vector<Bind> binds;
+};
+
 struct VkRenderPass_T
 {
   struct Attachment

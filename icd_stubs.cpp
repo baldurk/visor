@@ -105,40 +105,6 @@ VKAPI_ATTR void VKAPI_CALL vkDestroySampler(VkDevice device, VkSampler sampler,
   // nothing to do
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL vkCreateDescriptorSetLayout(
-    VkDevice device, const VkDescriptorSetLayoutCreateInfo *pCreateInfo,
-    const VkAllocationCallbacks *pAllocator, VkDescriptorSetLayout *pDescriptorSetLayout)
-{
-  // TODO but for now return unique values
-  static uint64_t nextDescriptorSetLayout = 1;
-  *pDescriptorSetLayout = (VkDescriptorSetLayout)(nextDescriptorSetLayout++);
-  return VK_SUCCESS;
-}
-
-VKAPI_ATTR void VKAPI_CALL vkDestroyDescriptorSetLayout(VkDevice device,
-                                                        VkDescriptorSetLayout descriptorSetLayout,
-                                                        const VkAllocationCallbacks *pAllocator)
-{
-  // nothing to do
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL vkCreatePipelineLayout(VkDevice device,
-                                                      const VkPipelineLayoutCreateInfo *pCreateInfo,
-                                                      const VkAllocationCallbacks *pAllocator,
-                                                      VkPipelineLayout *pPipelineLayout)
-{
-  // TODO but for now return unique values
-  static uint64_t nextPipelineLayout = 1;
-  *pPipelineLayout = (VkPipelineLayout)(nextPipelineLayout++);
-  return VK_SUCCESS;
-}
-
-VKAPI_ATTR void VKAPI_CALL vkDestroyPipelineLayout(VkDevice device, VkPipelineLayout pipelineLayout,
-                                                   const VkAllocationCallbacks *pAllocator)
-{
-  // nothing to do
-}
-
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateShaderModule(VkDevice device,
                                                     const VkShaderModuleCreateInfo *pCreateInfo,
                                                     const VkAllocationCallbacks *pAllocator,
@@ -201,50 +167,6 @@ VKAPI_ATTR void VKAPI_CALL vkDestroyPipeline(VkDevice device, VkPipeline pipelin
                                              const VkAllocationCallbacks *pAllocator)
 {
   // nothing to do
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL vkCreateDescriptorPool(VkDevice device,
-                                                      const VkDescriptorPoolCreateInfo *pCreateInfo,
-                                                      const VkAllocationCallbacks *pAllocator,
-                                                      VkDescriptorPool *pDescriptorPool)
-{
-  // TODO but for now return unique values
-  static uint64_t nextDescriptorPool = 1;
-  *pDescriptorPool = (VkDescriptorPool)(nextDescriptorPool++);
-  return VK_SUCCESS;
-}
-
-VKAPI_ATTR void VKAPI_CALL vkDestroyDescriptorPool(VkDevice device, VkDescriptorPool sampler,
-                                                   const VkAllocationCallbacks *pAllocator)
-{
-  // nothing to do
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL vkAllocateDescriptorSets(VkDevice device,
-                                                        const VkDescriptorSetAllocateInfo *pAllocateInfo,
-                                                        VkDescriptorSet *pDescriptorSets)
-{
-  // TODO but for now return unique values
-  static uint64_t nextDescriptorSet = 1;
-  for(uint32_t i = 0; i < pAllocateInfo->descriptorSetCount; i++)
-    pDescriptorSets[0] = (VkDescriptorSet)(nextDescriptorSet++);
-  return VK_SUCCESS;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL vkFreeDescriptorSets(VkDevice device, VkDescriptorPool descriptorPool,
-                                                    uint32_t descriptorSetCount,
-                                                    const VkDescriptorSet *pDescriptorSets)
-{
-  // nothing to do
-  return VK_SUCCESS;
-}
-
-VKAPI_ATTR void VKAPI_CALL vkUpdateDescriptorSets(VkDevice device, uint32_t descriptorWriteCount,
-                                                  const VkWriteDescriptorSet *pDescriptorWrites,
-                                                  uint32_t descriptorCopyCount,
-                                                  const VkCopyDescriptorSet *pDescriptorCopies)
-{
-  // TODO
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkWaitForFences(VkDevice device, uint32_t fenceCount,

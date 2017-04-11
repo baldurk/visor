@@ -29,6 +29,7 @@ struct BindPipeline
 struct BindDescriptorSets
 {
   static const Command CommandID = Command::BindDescriptorSets;
+  VkDescriptorSet set;
 };
 
 struct SetViewport

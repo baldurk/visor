@@ -57,6 +57,11 @@ VKAPI_ATTR void VKAPI_CALL vkCmdBindDescriptorSets(
     uint32_t dynamicOffsetCount, const uint32_t *pDynamicOffsets)
 {
   auto *cmd = commandBuffer->push<cmd::BindDescriptorSets>();
+
+  if(descriptorSetCount > 0)
+    cmd->set = pDescriptorSets[0];
+  else
+    cmd->set = VK_NULL_HANDLE;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdSetViewport(VkCommandBuffer commandBuffer, uint32_t firstViewport,

@@ -160,6 +160,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="buffers.cpp" />
+    <ClCompile Include="cmd_record.cpp" />
     <ClCompile Include="images.cpp" />
     <ClCompile Include="query.cpp" />
     <ClCompile Include="icd_stubs.cpp" />

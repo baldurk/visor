@@ -14,6 +14,7 @@
     <ClCompile Include="query.cpp" />
     <ClCompile Include="buffers.cpp" />
     <ClCompile Include="cmd_record.cpp" />
+    <ClCompile Include="cmd_alloc.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="precompiled.h" />

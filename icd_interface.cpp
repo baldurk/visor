@@ -1,13 +1,4 @@
-#if defined(_WIN32)
-#define VK_USE_PLATFORM_WIN32_KHR 1
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#endif
-
-#include <assert.h>
-#include <algorithm>
-#include "3rdparty/vk_icd.h"
-#include "3rdparty/vulkan.h"
+#include "precompiled.h"
 
 #define ICD_FUNC(name)      \
   if(!strcmp(pName, #name)) \

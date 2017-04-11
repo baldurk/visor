@@ -2,24 +2,48 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="rasterizer.cpp" />
-    <ClCompile Include="3rdparty\microprofile.cpp" />
     <ClCompile Include="icd_interface.cpp" />
     <ClCompile Include="icd_query.cpp" />
     <ClCompile Include="icd_wsi.cpp" />
     <ClCompile Include="icd_stubs.cpp" />
     <ClCompile Include="images.cpp" />
     <ClCompile Include="memory.cpp" />
+    <ClCompile Include="precompiled.cpp" />
+    <ClCompile Include="3rdparty\microprofile.cpp">
+      <Filter>3rdparty\microprofile</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="graphics.h" />
-    <ClInclude Include="3rdparty\microprofile.h" />
-    <ClInclude Include="3rdparty\microprofile_html.h" />
-    <ClInclude Include="3rdparty\vk_icd.h" />
-    <ClInclude Include="3rdparty\vk_platform.h" />
-    <ClInclude Include="3rdparty\vulkan.h" />
     <ClInclude Include="icd_common.h" />
+    <ClInclude Include="precompiled.h" />
+    <ClInclude Include="3rdparty\vk_platform.h">
+      <Filter>3rdparty\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\vulkan.h">
+      <Filter>3rdparty\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\vk_icd.h">
+      <Filter>3rdparty\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\microprofile_html.h">
+      <Filter>3rdparty\microprofile</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\microprofile.h">
+      <Filter>3rdparty\microprofile</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="visor.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="3rdparty">
+      <UniqueIdentifier>{6cd89935-ac88-4b34-b28c-cc80386c136f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="3rdparty\vulkan">
+      <UniqueIdentifier>{c8070b18-1182-4e2b-a292-ae2eb61a9ba0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="3rdparty\microprofile">
+      <UniqueIdentifier>{901a93a7-86c6-466a-a4c6-8b33ca7bd5e4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

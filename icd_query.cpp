@@ -1,4 +1,4 @@
-#include "icd_common.h"
+#include "precompiled.h"
 
 static VkResult FillPropertyCountAndList(const VkExtensionProperties *src, uint32_t numExts,
                                          uint32_t *dstCount, VkExtensionProperties *dstProps)

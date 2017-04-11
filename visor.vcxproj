@@ -89,12 +89,12 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
+      <PrecompiledHeader>Create</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>/DMICROPROFILE_GPU_TIMERS=0 /DVK_USE_PLATFORM_WIN32_KHR=1 %(AdditionalOptions)</AdditionalOptions>
+      <PrecompiledHeaderFile>precompiled.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -104,12 +104,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
+      <PrecompiledHeader>Create</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>/DMICROPROFILE_GPU_TIMERS=0 /DVK_USE_PLATFORM_WIN32_KHR=1 %(AdditionalOptions)</AdditionalOptions>
+      <PrecompiledHeaderFile>precompiled.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -156,12 +156,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="3rdparty\microprofile.cpp" />
+    <ClCompile Include="3rdparty\microprofile.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="images.cpp" />
     <ClCompile Include="icd_query.cpp" />
     <ClCompile Include="icd_stubs.cpp" />
     <ClCompile Include="icd_wsi.cpp" />
     <ClCompile Include="memory.cpp" />
+    <ClCompile Include="precompiled.cpp" />
     <ClCompile Include="rasterizer.cpp" />
     <ClCompile Include="icd_interface.cpp" />
   </ItemGroup>
@@ -171,7 +174,7 @@
     <ClInclude Include="3rdparty\vk_icd.h" />
     <ClInclude Include="3rdparty\vk_platform.h" />
     <ClInclude Include="3rdparty\vulkan.h" />
-    <ClInclude Include="graphics.h" />
+    <ClInclude Include="precompiled.h" />
     <ClInclude Include="icd_common.h" />
   </ItemGroup>
   <ItemGroup>

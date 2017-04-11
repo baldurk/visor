@@ -1,10 +1,5 @@
 #pragma once
 
-#include "graphics.h"
-
-#include "3rdparty/vk_icd.h"
-#include "3rdparty/vulkan.h"
-
 struct VkDevice_T
 {
   ~VkDevice_T()

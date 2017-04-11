@@ -4,7 +4,7 @@
 VKAPI_ATTR VkResult VKAPI_CALL vkBeginCommandBuffer(VkCommandBuffer commandBuffer,
                                                     const VkCommandBufferBeginInfo *pBeginInfo)
 {
-  // TODO
+  commandBuffer->commandStream.clear();
   return VK_SUCCESS;
 }
 

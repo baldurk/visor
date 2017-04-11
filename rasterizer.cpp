@@ -148,12 +148,12 @@ static float4 PixelShader(float4 bary, float pixdepth, const float4 *homog, cons
   float4 top;
   top.x = float(TL[0]) * (1.0f - fu) + float(TR[0]) * fu;
   top.y = float(TL[1]) * (1.0f - fu) + float(TR[1]) * fu;
-  top.z = float(TL[1]) * (1.0f - fu) + float(TR[1]) * fu;
+  top.z = float(TL[2]) * (1.0f - fu) + float(TR[2]) * fu;
 
   float4 bottom;
   bottom.x = float(BL[0]) * (1.0f - fu) + float(BR[0]) * fu;
   bottom.y = float(BL[1]) * (1.0f - fu) + float(BR[1]) * fu;
-  bottom.z = float(BL[1]) * (1.0f - fu) + float(BR[1]) * fu;
+  bottom.z = float(BL[2]) * (1.0f - fu) + float(BR[2]) * fu;
 
   float4 ret;
   ret.x = top.x * (1.0f - fv) + bottom.x * fv;

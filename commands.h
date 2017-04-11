@@ -10,6 +10,8 @@ struct PipelineBarrier
 struct BeginRenderPass
 {
   static const Command CommandID = Command::BeginRenderPass;
+  VkRenderPass renderPass;
+  VkFramebuffer framebuffer;
 };
 
 struct EndRenderPass
@@ -20,6 +22,7 @@ struct EndRenderPass
 struct BindPipeline
 {
   static const Command CommandID = Command::BindPipeline;
+  VkPipeline pipeline;
 };
 
 struct BindDescriptorSets
@@ -30,6 +33,7 @@ struct BindDescriptorSets
 struct SetViewport
 {
   static const Command CommandID = Command::SetViewport;
+  VkViewport view;
 };
 
 struct SetScissors
@@ -40,5 +44,6 @@ struct SetScissors
 struct Draw
 {
   static const Command CommandID = Command::Draw;
+  uint32_t vertexCount, instanceCount, firstVertex, firstInstance;
 };
 };

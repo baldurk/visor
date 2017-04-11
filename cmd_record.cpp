@@ -22,7 +22,6 @@ VKAPI_ATTR void VKAPI_CALL vkCmdPipelineBarrier(
     uint32_t imageMemoryBarrierCount, const VkImageMemoryBarrier *pImageMemoryBarriers)
 {
   auto *cmd = commandBuffer->push<cmd::PipelineBarrier>();
-  // TODO
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdBeginRenderPass(VkCommandBuffer commandBuffer,
@@ -30,13 +29,13 @@ VKAPI_ATTR void VKAPI_CALL vkCmdBeginRenderPass(VkCommandBuffer commandBuffer,
                                                 VkSubpassContents contents)
 {
   auto *cmd = commandBuffer->push<cmd::BeginRenderPass>();
-  // TODO
+  cmd->renderPass = pRenderPassBegin->renderPass;
+  cmd->framebuffer = pRenderPassBegin->framebuffer;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdEndRenderPass(VkCommandBuffer commandBuffer)
 {
   auto *cmd = commandBuffer->push<cmd::EndRenderPass>();
-  // TODO
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdBindPipeline(VkCommandBuffer commandBuffer,
@@ -44,7 +43,7 @@ VKAPI_ATTR void VKAPI_CALL vkCmdBindPipeline(VkCommandBuffer commandBuffer,
                                              VkPipeline pipeline)
 {
   auto *cmd = commandBuffer->push<cmd::BindPipeline>();
-  // TODO
+  cmd->pipeline = pipeline;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdBindDescriptorSets(
@@ -53,21 +52,19 @@ VKAPI_ATTR void VKAPI_CALL vkCmdBindDescriptorSets(
     uint32_t dynamicOffsetCount, const uint32_t *pDynamicOffsets)
 {
   auto *cmd = commandBuffer->push<cmd::BindDescriptorSets>();
-  // TODO
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdSetViewport(VkCommandBuffer commandBuffer, uint32_t firstViewport,
                                             uint32_t viewportCount, const VkViewport *pViewports)
 {
   auto *cmd = commandBuffer->push<cmd::SetViewport>();
-  // TODO
+  cmd->view = pViewports[0];
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdSetScissor(VkCommandBuffer commandBuffer, uint32_t firstScissor,
                                            uint32_t scissorCount, const VkRect2D *pScissors)
 {
   auto *cmd = commandBuffer->push<cmd::SetScissors>();
-  // TODO
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdDraw(VkCommandBuffer commandBuffer, uint32_t vertexCount,
@@ -75,5 +72,8 @@ VKAPI_ATTR void VKAPI_CALL vkCmdDraw(VkCommandBuffer commandBuffer, uint32_t ver
                                      uint32_t firstInstance)
 {
   auto *cmd = commandBuffer->push<cmd::Draw>();
-  // TODO
+  cmd->vertexCount = vertexCount;
+  cmd->instanceCount = instanceCount;
+  cmd->firstVertex = firstVertex;
+  cmd->firstInstance = firstInstance;
 }

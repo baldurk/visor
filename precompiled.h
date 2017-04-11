@@ -51,6 +51,8 @@ struct VkCommandBuffer_T
     return (T *)pushbytes(sizeof(T));
   }
 
+  void execute() const;
+
 private:
   byte *pushbytes(size_t sz);
 };

@@ -41,7 +41,7 @@ static std::vector<float4> VertexShader(const float *pos, int numVerts, const fl
     for(int row = 0; row < 4; row++)
     {
       for(int col = 0; col < 4; col++)
-        view.v[row] += MVP[row * 4 + col] * pos[col];
+        view.v[row] += MVP[col * 4 + row] * pos[col];
     }
 
     ret.push_back(view);

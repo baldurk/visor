@@ -119,6 +119,11 @@ static float4 PixelShader(float4 bary, float pixdepth, const float4 *homog, cons
   if(tex == NULL)
     return float4(u, v, 0.0f, 1.0f);
 
+  if(u >= 1.0f)
+    u -= 1.0f;
+  if(v >= 1.0f)
+    v -= 1.0f;
+
   u *= tex->extent.width;
   v *= tex->extent.height;
 
@@ -126,6 +131,11 @@ static float4 PixelShader(float4 bary, float pixdepth, const float4 *homog, cons
   int iv0 = int(v);
   int iu1 = iu0 + 1;
   int iv1 = iv0 + 1;
+
+  if(iu1 >= (int)tex->extent.width)
+    iu1 -= tex->extent.width;
+  if(iv1 >= (int)tex->extent.height)
+    iv1 -= tex->extent.height;
 
   float fu = u - float(iu0);
   float fv = v - float(iv0);

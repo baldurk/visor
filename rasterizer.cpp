@@ -201,7 +201,8 @@ void DrawTriangles(VkImage target, int numVerts, const float *pos, const float *
     int4 minwin, maxwin;
     MinMax(tri, minwin, maxwin);
 
-    float4 depth(homog[0].z / homog[0].w, homog[1].z / homog[1].w, homog[2].z / homog[2].w, 0.0f);
+    float4 invw(1.0f / homog[0].w, 1.0f / homog[1].w, 1.0f / homog[2].w, 0.0f);
+    float4 depth(homog[0].z * invw.x, homog[1].z / invw.y, homog[2].z / invw.z, 0.0f);
 
     assert(minwin.x >= 0 && maxwin.x <= (int)w);
     assert(minwin.y >= 0 && maxwin.y <= (int)h);
@@ -222,7 +223,18 @@ void DrawTriangles(VkImage target, int numVerts, const float *pos, const float *
           n.y /= n.w;
           n.z /= n.w;
 
+          // calculate pixel depth
           float pixdepth = n.x * depth.x + n.y * depth.y + n.z * depth.z;
+
+          // perspective correct with W
+          n.x *= invw.x;
+          n.y *= invw.y;
+          n.z *= invw.z;
+
+          float invlen = 1.0f / (n.x + n.y + n.z);
+          n.x *= invlen;
+          n.y *= invlen;
+          n.z *= invlen;
 
           float4 pix = PixelShader(n, pixdepth, homog, UV, tex);
 

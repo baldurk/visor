@@ -24,9 +24,32 @@ struct VkDevice_T
   std::vector<VK_LOADER_DATA *> queues;
 };
 
+enum class Command : uint16_t
+{
+};
+
 struct VkCommandBuffer_T
 {
   uintptr_t loaderMagic;
+  bool live = false;
+  std::vector<byte> commandStream;
+
+  template <typename T>
+  T *push()
+  {
+    Command *id = (Command *)pushbytes(sizeof(Command));
+    *id = T::CommandID;
+    return (T *)pushbytes(sizeof(T));
+  }
+
+private:
+  byte *pushbytes(size_t sz);
+};
+
+struct VkCommandPool_T
+{
+  std::vector<VkCommandBuffer> buffers;
+  VkCommandBuffer alloc();
 };
 
 struct VkDeviceMemory_T

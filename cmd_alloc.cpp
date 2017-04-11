@@ -1,20 +1,37 @@
 #include "precompiled.h"
 
+VkCommandBuffer VkCommandPool_T::alloc()
+{
+  // brain dead algorithm
+  for(VkCommandBuffer c : buffers)
+  {
+    if(!c->live)
+    {
+      c->live = true;
+      return c;
+    }
+  }
+
+  VkCommandBuffer ret = new VkCommandBuffer_T;
+  buffers.push_back(ret);
+  return ret;
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateCommandPool(VkDevice device,
                                                    const VkCommandPoolCreateInfo *pCreateInfo,
                                                    const VkAllocationCallbacks *pAllocator,
                                                    VkCommandPool *pCommandPool)
 {
-  // TODO but for now return unique values
-  static uint64_t nextCommandPool = 1;
-  *pCommandPool = (VkCommandPool)(nextCommandPool++);
+  *pCommandPool = new VkCommandPool_T;
   return VK_SUCCESS;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkDestroyCommandPool(VkDevice device, VkCommandPool commandPool,
                                                 const VkAllocationCallbacks *pAllocator)
 {
-  // nothing to do
+  for(VkCommandBuffer c : commandPool->buffers)
+    delete c;
+  delete commandPool;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkAllocateCommandBuffers(VkDevice device,
@@ -23,7 +40,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkAllocateCommandBuffers(VkDevice device,
 {
   for(uint32_t i = 0; i < pAllocateInfo->commandBufferCount; i++)
   {
-    VkCommandBuffer cmd = new VkCommandBuffer_T;
+    VkCommandBuffer cmd = pAllocateInfo->commandPool->alloc();
     set_loader_magic_value(cmd);
     pCommandBuffers[i] = cmd;
   }
@@ -35,5 +52,18 @@ VKAPI_ATTR void VKAPI_CALL vkFreeCommandBuffers(VkDevice device, VkCommandPool c
                                                 const VkCommandBuffer *pCommandBuffers)
 {
   for(uint32_t i = 0; i < commandBufferCount; i++)
-    delete pCommandBuffers[i];
+    pCommandBuffers[i]->live = false;
+}
+
+byte *VkCommandBuffer_T::pushbytes(size_t sz)
+{
+  size_t spare = commandStream.capacity() - commandStream.size();
+  // if there's no spare capacity, allocate more
+  if(sz > spare)
+    commandStream.reserve(commandStream.capacity() * 2 + sz);
+
+  // resize up to the newly used bytes, then return
+  byte *ret = commandStream.data() + commandStream.size();
+  commandStream.resize(commandStream.size() + sz);
+  return ret;
 }

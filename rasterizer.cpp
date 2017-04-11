@@ -153,14 +153,27 @@ static float4 PixelShader(float4 bary, float pixdepth, const float4 *homog, cons
   return ret;
 }
 
-void ClearTarget(VkImage target)
+void ClearTarget(VkImage target, const VkClearColorValue &col)
 {
   MICROPROFILE_SCOPEI("rasterizer", "clear RTV", MP_RED);
 
   byte *bits = target->pixels;
   const uint32_t w = target->extent.width;
   const uint32_t h = target->extent.height;
-  memset(bits, 0x80, w * h * 4);
+
+  byte eval[4];
+  eval[2] = byte(col.float32[0] * 255.0f);
+  eval[1] = byte(col.float32[1] * 255.0f);
+  eval[0] = byte(col.float32[2] * 255.0f);
+  eval[3] = byte(col.float32[3] * 255.0f);
+
+  for(uint32_t x = 0; x < w; x++)
+  {
+    for(uint32_t y = 0; y < h; y++)
+    {
+      memcpy(&bits[y * w * 4 + x * 4], eval, sizeof(eval));
+    }
+  }
 }
 
 void DrawTriangles(VkImage target, int numVerts, const float *pos, const float *UV,

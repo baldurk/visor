@@ -31,6 +31,11 @@ VKAPI_ATTR void VKAPI_CALL vkCmdBeginRenderPass(VkCommandBuffer commandBuffer,
   auto *cmd = commandBuffer->push<cmd::BeginRenderPass>();
   cmd->renderPass = pRenderPassBegin->renderPass;
   cmd->framebuffer = pRenderPassBegin->framebuffer;
+
+  if(pRenderPassBegin->clearValueCount > 0)
+    cmd->clearval = pRenderPassBegin->pClearValues[0];
+  else
+    cmd->clearval = {};
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdEndRenderPass(VkCommandBuffer commandBuffer)

@@ -24,8 +24,17 @@ struct VkDevice_T
   std::vector<VK_LOADER_DATA *> queues;
 };
 
+// see commands.h
 enum class Command : uint16_t
 {
+  PipelineBarrier,
+  BeginRenderPass,
+  EndRenderPass,
+  BindPipeline,
+  BindDescriptorSets,
+  SetViewport,
+  SetScissors,
+  Draw,
 };
 
 struct VkCommandBuffer_T

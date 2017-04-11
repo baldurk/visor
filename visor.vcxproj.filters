@@ -35,6 +35,7 @@
     <ClInclude Include="3rdparty\microprofile.h">
       <Filter>3rdparty\microprofile</Filter>
     </ClInclude>
+    <ClInclude Include="commands.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="visor.json" />

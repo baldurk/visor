@@ -179,6 +179,7 @@
     <ClInclude Include="3rdparty\vk_icd.h" />
     <ClInclude Include="3rdparty\vk_platform.h" />
     <ClInclude Include="3rdparty\vulkan.h" />
+    <ClInclude Include="commands.h" />
     <ClInclude Include="precompiled.h" />
   </ItemGroup>
   <ItemGroup>

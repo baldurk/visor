@@ -83,6 +83,7 @@ struct VkImageView_T
 struct VkBuffer_T
 {
   VkDeviceSize size = 0;
+  byte *bytes = NULL;
 };
 
 struct VkSwapchainKHR_T

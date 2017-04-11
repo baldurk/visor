@@ -6,6 +6,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateBuffer(VkDevice device, const VkBufferCre
 {
   VkBuffer ret = new VkBuffer_T;
   ret->size = pCreateInfo->size;
+  ret->bytes = NULL;    // no memory bound
   *pBuffer = ret;
   return VK_SUCCESS;
 }
@@ -28,6 +29,6 @@ VKAPI_ATTR void VKAPI_CALL vkGetBufferMemoryRequirements(VkDevice device, VkBuff
 VKAPI_ATTR VkResult VKAPI_CALL vkBindBufferMemory(VkDevice device, VkBuffer buffer,
                                                   VkDeviceMemory memory, VkDeviceSize memoryOffset)
 {
-  // TODO
+  buffer->bytes = memory->bytes + memoryOffset;
   return VK_SUCCESS;
 }

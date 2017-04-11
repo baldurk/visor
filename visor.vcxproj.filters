@@ -3,8 +3,6 @@
   <ItemGroup>
     <ClCompile Include="rasterizer.cpp" />
     <ClCompile Include="icd_interface.cpp" />
-    <ClCompile Include="icd_query.cpp" />
-    <ClCompile Include="icd_wsi.cpp" />
     <ClCompile Include="icd_stubs.cpp" />
     <ClCompile Include="images.cpp" />
     <ClCompile Include="memory.cpp" />
@@ -12,6 +10,8 @@
     <ClCompile Include="3rdparty\microprofile.cpp">
       <Filter>3rdparty\microprofile</Filter>
     </ClCompile>
+    <ClCompile Include="wsi.cpp" />
+    <ClCompile Include="query.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="icd_common.h" />

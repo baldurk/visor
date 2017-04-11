@@ -164,7 +164,6 @@
     <ClCompile Include="memory.cpp" />
     <ClCompile Include="rasterizer.cpp" />
     <ClCompile Include="icd_interface.cpp" />
-    <ClCompile Include="wsi.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="3rdparty\microprofile.h" />
@@ -174,8 +173,6 @@
     <ClInclude Include="3rdparty\vulkan.h" />
     <ClInclude Include="graphics.h" />
     <ClInclude Include="icd_common.h" />
-    <ClInclude Include="rasterizer.h" />
-    <ClInclude Include="wsi.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="visor.json" />

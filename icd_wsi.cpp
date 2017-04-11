@@ -1,5 +1,4 @@
 #include "icd_common.h"
-#include "wsi.h"
 
 VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceSurfaceSupportKHR(VkPhysicalDevice physicalDevice,
                                                                     uint32_t queueFamilyIndex,
@@ -93,22 +92,56 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateSwapchainKHR(VkDevice device,
 
   // TODO probably want more properties out of here, although we restricted the options a lot
   VkIcdSurfaceBase *base = (VkIcdSurfaceBase *)pCreateInfo->surface;
+
+  ret->backbuffers.resize(pCreateInfo->minImageCount);
+
+  ret->extent = pCreateInfo->imageExtent;
+
 #if defined(_WIN32)
   if(base->platform == VK_ICD_WSI_PLATFORM_WIN32)
   {
     VkIcdSurfaceWin32 *win32 = (VkIcdSurfaceWin32 *)base;
-    ret->swap = CreateSwapchain(win32->hwnd, pCreateInfo->minImageCount);
+    ret->wnd = win32->hwnd;
+    ret->dc = GetDC(ret->wnd);
+
+    for(size_t i = 0; i < ret->backbuffers.size(); i++)
+    {
+      ret->backbuffers[i].mem = new VkDeviceMemory_T();
+      ret->backbuffers[i].mem->size = ret->extent.width * ret->extent.height * 4;
+
+      HDC dc = CreateCompatibleDC(ret->dc);
+      HBITMAP bmp = NULL;
+
+      BITMAPINFO info = {};
+      info.bmiHeader.biSize = sizeof(info.bmiHeader);
+      info.bmiHeader.biWidth = ret->extent.width;
+      info.bmiHeader.biHeight = ret->extent.height;
+      info.bmiHeader.biPlanes = 1;
+      info.bmiHeader.biBitCount = 32;
+      info.bmiHeader.biCompression = BI_RGB;
+      info.bmiHeader.biSizeImage = 0;
+      info.bmiHeader.biXPelsPerMeter = info.bmiHeader.biYPelsPerMeter = 96;
+      info.bmiHeader.biClrUsed = 0;
+      info.bmiHeader.biClrImportant = 0;
+
+      bmp = CreateDIBSection(dc, &info, DIB_RGB_COLORS, (void **)&ret->backbuffers[i].mem->bytes,
+                             NULL, 0);
+      assert(bmp && ret->backbuffers[i].mem->bytes);
+
+      SelectObject(dc, bmp);
+
+      ret->backbuffers[i].dc = dc;
+      ret->backbuffers[i].bmp = bmp;
+    }
   }
 #endif
-  assert(ret->swap);
-  ret->images.resize(pCreateInfo->minImageCount);
-  for(size_t i = 0; i < ret->images.size(); i++)
+
+  for(size_t i = 0; i < ret->backbuffers.size(); i++)
   {
-    ret->images[i] = new VkImage_T();
-    ret->images[i]->extent = pCreateInfo->imageExtent;
-    ret->images[i]->pixels = GetImagePixels(ret->swap, (int)i);
+    ret->backbuffers[i].im = new VkImage_T();
+    ret->backbuffers[i].im->extent = ret->extent;
+    ret->backbuffers[i].im->pixels = ret->backbuffers[i].mem->bytes;
   }
-  ret->extent = pCreateInfo->imageExtent;
 
   *pSwapchain = ret;
   return VK_SUCCESS;
@@ -117,6 +150,23 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateSwapchainKHR(VkDevice device,
 VKAPI_ATTR void VKAPI_CALL vkDestroySwapchainKHR(VkDevice device, VkSwapchainKHR swapchain,
                                                  const VkAllocationCallbacks *pAllocator)
 {
+  for(VkSwapchainKHR_T::Backbuffer &b : swapchain->backbuffers)
+  {
+    delete b.im;
+    delete b.mem;
+
+#if defined(_WIN32)
+    if(b.dc)
+      DeleteDC(b.dc);
+
+    if(b.bmp)
+      DeleteObject(b.bmp);
+#endif
+  }
+
+  if(swapchain->dc)
+    ReleaseDC(swapchain->wnd, swapchain->dc);
+
   delete swapchain;
 }
 
@@ -126,12 +176,12 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetSwapchainImagesKHR(VkDevice device, VkSwapch
 {
   if(pSwapchainImageCount && !pSwapchainImages)
   {
-    *pSwapchainImageCount = (uint32_t)swapchain->images.size();
+    *pSwapchainImageCount = (uint32_t)swapchain->backbuffers.size();
     return VK_SUCCESS;
   }
 
   for(uint32_t i = 0; i < *pSwapchainImageCount; i++)
-    pSwapchainImages[i] = swapchain->images[i];
+    pSwapchainImages[i] = swapchain->backbuffers[i].im;
 
   return VK_SUCCESS;
 }
@@ -141,13 +191,21 @@ VKAPI_ATTR VkResult VKAPI_CALL vkAcquireNextImageKHR(VkDevice device, VkSwapchai
                                                      VkFence fence, uint32_t *pImageIndex)
 {
   // ignore fence and semaphore
-  *pImageIndex = (uint32_t)Acquire(swapchain->swap);
+  swapchain->current = (swapchain->current + 1) % swapchain->backbuffers.size();
+  *pImageIndex = swapchain->current;
 
   return VK_SUCCESS;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkQueuePresentKHR(VkQueue queue, const VkPresentInfoKHR *pPresentInfo)
 {
-  // TODO
+  for(uint32_t i = 0; i < pPresentInfo->swapchainCount; i++)
+  {
+    const VkSwapchainKHR &swap = pPresentInfo->pSwapchains[i];
+
+    const VkSwapchainKHR_T::Backbuffer &bb = swap->backbuffers[pPresentInfo->pImageIndices[i]];
+
+    BitBlt(swap->dc, 0, 0, swap->extent.width, swap->extent.height, bb.dc, 0, 0, SRCCOPY);
+  }
   return VK_SUCCESS;
 }

@@ -6,6 +6,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkAllocateMemory(VkDevice device,
                                                 VkDeviceMemory *pMemory)
 {
   VkDeviceMemory ret = new VkDeviceMemory_T;
+  ret->size = pAllocateInfo->allocationSize;
   ret->bytes = new byte[pAllocateInfo->allocationSize];
   *pMemory = ret;
   return VK_SUCCESS;

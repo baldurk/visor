@@ -11,15 +11,3 @@
 #include "3rdparty/microprofile.h"
 
 typedef unsigned char byte;
-
-struct Image;
-struct Swapchain;
-
-Swapchain *CreateSwapchain(HWND wnd, int numBuffers);
-byte *GetImagePixels(Swapchain *swap, int index);
-void Destroy(Swapchain *swap);
-
-int Acquire(Swapchain *swap);
-void DrawTriangle(Image *backbuffer, int numVerts, const float *pos, const float *UV,
-                  const float *MVP, const Image *tex);
-void Present(Swapchain *swap, int index);

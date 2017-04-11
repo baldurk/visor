@@ -24,6 +24,7 @@ struct VkCommandBuffer_T
 
 struct VkDeviceMemory_T
 {
+  VkDeviceSize size;
   byte *bytes;
 };
 
@@ -40,13 +41,25 @@ struct VkBuffer_T
 
 struct VkSwapchainKHR_T
 {
-  ~VkSwapchainKHR_T()
-  {
-    for(VkImage i : images)
-      delete i;
-    Destroy(swap);
-  }
   VkExtent2D extent;
-  Swapchain *swap;
-  std::vector<VkImage> images;
+
+  struct Backbuffer
+  {
+    VkImage im;
+    VkDeviceMemory mem;
+
+#if defined(_WIN32)
+    HDC dc = NULL;
+    HBITMAP bmp = NULL;
+#endif
+  };
+
+  std::vector<Backbuffer> backbuffers;
+
+#if defined(_WIN32)
+  HWND wnd = NULL;
+  HDC dc = NULL;
+#endif
+
+  uint32_t current = 0;
 };

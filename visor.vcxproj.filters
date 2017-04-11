@@ -2,7 +2,6 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="rasterizer.cpp" />
-    <ClCompile Include="wsi.cpp" />
     <ClCompile Include="3rdparty\microprofile.cpp" />
     <ClCompile Include="icd_interface.cpp" />
     <ClCompile Include="icd_query.cpp" />
@@ -13,8 +12,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="graphics.h" />
-    <ClInclude Include="rasterizer.h" />
-    <ClInclude Include="wsi.h" />
     <ClInclude Include="3rdparty\microprofile.h" />
     <ClInclude Include="3rdparty\microprofile_html.h" />
     <ClInclude Include="3rdparty\vk_icd.h" />

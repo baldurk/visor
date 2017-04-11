@@ -215,7 +215,7 @@ void DrawTriangles(VkImage target, int numVerts, const float *pos, const float *
       {
         int4 b = barycentric(tri, int4(x, y, 0, 0));
 
-        if(b.x > 0.0f && b.y > 0.0f && b.z > 0.0f)
+        if(b.x >= 0 && b.y >= 0 && b.z >= 0)
         {
           // normalise the barycentrics
           float4 n = float4(float(b.x), float(b.y), float(b.z), float(b.w));

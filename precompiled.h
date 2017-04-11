@@ -86,6 +86,27 @@ struct VkBuffer_T
   byte *bytes = NULL;
 };
 
+struct VkRenderPass_T
+{
+  struct Attachment
+  {
+    uint32_t idx;
+    bool clear;
+  };
+
+  struct Subpass
+  {
+    std::vector<Attachment> colAttachments;
+  };
+
+  std::vector<Subpass> subpasses;
+};
+
+struct VkFramebuffer_T
+{
+  std::vector<VkImageView> attachments;
+};
+
 struct VkSwapchainKHR_T
 {
   VkExtent2D extent = {0, 0};

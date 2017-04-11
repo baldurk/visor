@@ -1015,6 +1015,7 @@ void MicroProfileShutdown()
 		S.nJsonSettingsBufferSize = 0;
 	}
 	S.nMicroProfileShutdown = 1;
+	MicroProfileThreadJoin(&S.WebSocketSendThread);
 	MicroProfileWebServerStop();
 	MicroProfileStopContextSwitchTrace();
 	MicroProfileGpuShutdown();

@@ -153,8 +153,18 @@ static float4 PixelShader(float4 bary, float pixdepth, const float4 *homog, cons
   return ret;
 }
 
-void DrawTriangle(VkImage target, int numVerts, const float *pos, const float *UV, const float *MVP,
-                  const VkImage tex)
+void ClearTarget(VkImage target)
+{
+  MICROPROFILE_SCOPEI("rasterizer", "clear RTV", MP_RED);
+
+  byte *bits = target->pixels;
+  const uint32_t w = target->extent.width;
+  const uint32_t h = target->extent.height;
+  memset(bits, 0x80, w * h * 4);
+}
+
+void DrawTriangles(VkImage target, int numVerts, const float *pos, const float *UV,
+                   const float *MVP, const VkImage tex)
 {
   byte *bits = target->pixels;
   const uint32_t w = target->extent.width;
@@ -164,15 +174,7 @@ void DrawTriangle(VkImage target, int numVerts, const float *pos, const float *U
 
   std::vector<int4> winCoords = ToWindow(w, h, homogCoords);
 
-  {
-    MICROPROFILE_SCOPEI("rasterizer", "clear RTV", MP_RED);
-    memset(bits, 0x80, w * h * 4);
-  }
-
   int written = 0, tested = 0, tris_in = 0;
-  MICROPROFILE_COUNTER_SET("rasterizer/pixels/tested", tested);
-  MICROPROFILE_COUNTER_SET("rasterizer/pixels/written", written);
-  MICROPROFILE_COUNTER_SET("rasterizer/triangles/in", tris_in);
 
   const int4 *tri = winCoords.data();
   const float4 *homog = homogCoords.data();
@@ -227,7 +229,7 @@ void DrawTriangle(VkImage target, int numVerts, const float *pos, const float *U
     UV += 3 * 4;
   }
 
-  MICROPROFILE_COUNTER_SET("rasterizer/pixels/tested", tested);
-  MICROPROFILE_COUNTER_SET("rasterizer/pixels/written", written);
-  MICROPROFILE_COUNTER_SET("rasterizer/triangles/in", tris_in);
+  MICROPROFILE_COUNTER_ADD("rasterizer/pixels/tested", tested);
+  MICROPROFILE_COUNTER_ADD("rasterizer/pixels/written", written);
+  MICROPROFILE_COUNTER_ADD("rasterizer/triangles/in", tris_in);
 }

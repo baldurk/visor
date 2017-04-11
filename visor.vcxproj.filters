@@ -17,6 +17,7 @@
     <ClCompile Include="cmd_alloc.cpp" />
     <ClCompile Include="renderpass.cpp" />
     <ClCompile Include="cmd_exec.cpp" />
+    <ClCompile Include="stats.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="precompiled.h" />

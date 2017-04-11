@@ -110,3 +110,6 @@ struct VkSwapchainKHR_T
 
   uint32_t current = 0;
 };
+
+void BeginFrameStats();
+void EndFrameStats();

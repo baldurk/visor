@@ -167,6 +167,7 @@
     <ClCompile Include="icd_stubs.cpp" />
     <ClCompile Include="cmd_exec.cpp" />
     <ClCompile Include="renderpass.cpp" />
+    <ClCompile Include="stats.cpp" />
     <ClCompile Include="wsi.cpp" />
     <ClCompile Include="memory.cpp" />
     <ClCompile Include="precompiled.cpp" />

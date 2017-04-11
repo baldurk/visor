@@ -199,6 +199,8 @@ VKAPI_ATTR VkResult VKAPI_CALL vkAcquireNextImageKHR(VkDevice device, VkSwapchai
 
 VKAPI_ATTR VkResult VKAPI_CALL vkQueuePresentKHR(VkQueue queue, const VkPresentInfoKHR *pPresentInfo)
 {
+  EndFrameStats();
+
   for(uint32_t i = 0; i < pPresentInfo->swapchainCount; i++)
   {
     const VkSwapchainKHR &swap = pPresentInfo->pSwapchains[i];
@@ -207,5 +209,8 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueuePresentKHR(VkQueue queue, const VkPresentI
 
     BitBlt(swap->dc, 0, 0, swap->extent.width, swap->extent.height, bb.dc, 0, 0, SRCCOPY);
   }
+
+  BeginFrameStats();
+
   return VK_SUCCESS;
 }

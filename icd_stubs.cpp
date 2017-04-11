@@ -6,12 +6,14 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateInstance(const VkInstanceCreateInfo *pCre
 {
   *pInstance = (VkInstance) new VK_LOADER_DATA;
   set_loader_magic_value(*pInstance);
+  InitFrameStats();
   return VK_SUCCESS;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkDestroyInstance(VkInstance instance,
                                              const VkAllocationCallbacks *pAllocator)
 {
+  ShutdownFrameStats();
   delete(VK_LOADER_DATA *)instance;
 }
 

@@ -1,5 +1,9 @@
 #include "precompiled.h"
 
+void InitFrameStats()
+{
+}
+
 void BeginFrameStats()
 {
   MICROPROFILE_COUNTER_SET("rasterizer/pixels/tested", 0);
@@ -10,4 +14,9 @@ void BeginFrameStats()
 void EndFrameStats()
 {
   MicroProfileFlip(NULL);
+}
+
+void ShutdownFrameStats()
+{
+  MicroProfileShutdown();
 }

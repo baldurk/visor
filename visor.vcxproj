@@ -165,6 +165,8 @@
     <ClCompile Include="images.cpp" />
     <ClCompile Include="query.cpp" />
     <ClCompile Include="icd_stubs.cpp" />
+    <ClCompile Include="queue_submit.cpp" />
+    <ClCompile Include="renderpass.cpp" />
     <ClCompile Include="wsi.cpp" />
     <ClCompile Include="memory.cpp" />
     <ClCompile Include="precompiled.cpp" />

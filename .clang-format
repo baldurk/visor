@@ -47,6 +47,8 @@ DisableFormat:   false
 ExperimentalAutoDetectBinPacking: false
 ForEachMacros:   [ foreach, Q_FOREACH, BOOST_FOREACH ]
 IncludeCategories: 
+  - Regex:           'precompiled.h'
+    Priority:        -1
   - Regex:           '<.*\.h>'
     Priority:        1
   - Regex:           '^<[^.]*>'

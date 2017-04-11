@@ -159,6 +159,7 @@
     <ClCompile Include="3rdparty\microprofile.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="buffers.cpp" />
     <ClCompile Include="images.cpp" />
     <ClCompile Include="query.cpp" />
     <ClCompile Include="icd_stubs.cpp" />

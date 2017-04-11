@@ -12,6 +12,7 @@
     </ClCompile>
     <ClCompile Include="wsi.cpp" />
     <ClCompile Include="query.cpp" />
+    <ClCompile Include="buffers.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="precompiled.h" />

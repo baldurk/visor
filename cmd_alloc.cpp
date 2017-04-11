@@ -13,6 +13,7 @@ VkCommandBuffer VkCommandPool_T::alloc()
   }
 
   VkCommandBuffer ret = new VkCommandBuffer_T;
+  ret->live = true;
   buffers.push_back(ret);
   return ret;
 }

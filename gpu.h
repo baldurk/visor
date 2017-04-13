@@ -2,6 +2,17 @@
 
 struct GPUState
 {
+  struct
+  {
+    VkBuffer buffer;
+    VkDeviceSize offset;
+    VkIndexType indexType;
+  } ib;
+  struct
+  {
+    VkBuffer buffer;
+    VkDeviceSize offset;
+  } vbs[4];
   VkViewport view;
   VkImage target;
   VkPipeline pipeline;

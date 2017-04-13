@@ -32,6 +32,8 @@ enum class Command : uint16_t
   EndRenderPass,
   BindPipeline,
   BindDescriptorSets,
+  BindVB,
+  BindIB,
   SetViewport,
   SetScissors,
   Draw,

@@ -82,6 +82,8 @@
   ICD_FUNC(vkCmdPipelineBarrier);          \
   ICD_FUNC(vkCmdBeginRenderPass);          \
   ICD_FUNC(vkCmdEndRenderPass);            \
+  ICD_FUNC(vkCmdBindIndexBuffer);          \
+  ICD_FUNC(vkCmdBindVertexBuffers);        \
   ICD_FUNC(vkCmdBindPipeline);             \
   ICD_FUNC(vkCmdBindDescriptorSets);       \
   ICD_FUNC(vkCmdSetViewport);              \

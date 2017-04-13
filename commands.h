@@ -32,6 +32,22 @@ struct BindDescriptorSets
   VkDescriptorSet set;
 };
 
+struct BindVB
+{
+  static const Command CommandID = Command::BindVB;
+  uint32_t slot;
+  VkBuffer buffer;
+  VkDeviceSize offset;
+};
+
+struct BindIB
+{
+  static const Command CommandID = Command::BindIB;
+  VkBuffer buffer;
+  VkDeviceSize offset;
+  VkIndexType indexType;
+};
+
 struct SetViewport
 {
   static const Command CommandID = Command::SetViewport;

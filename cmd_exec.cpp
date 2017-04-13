@@ -78,6 +78,25 @@ void VkCommandBuffer_T::execute() const
 
         break;
       }
+      case Command::BindIB:
+      {
+        const cmd::BindIB &data = pull<cmd::BindIB>(&cur);
+
+        state.ib.buffer = data.buffer;
+        state.ib.offset = data.offset;
+        state.ib.indexType = data.indexType;
+
+        break;
+      };
+      case Command::BindVB:
+      {
+        const cmd::BindVB &data = pull<cmd::BindVB>(&cur);
+
+        state.vbs[data.slot].buffer = data.buffer;
+        state.vbs[data.slot].offset = data.offset;
+
+        break;
+      };
       case Command::SetViewport:
       {
         const cmd::SetViewport &data = pull<cmd::SetViewport>(&cur);

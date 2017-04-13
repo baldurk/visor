@@ -272,8 +272,11 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
     float4 depth(vsout[0].position.z * invw.x, vsout[1].position.z / invw.y,
                  vsout[2].position.z / invw.z, 0.0f);
 
-    assert(minwin.x >= 0 && maxwin.x <= (int)w);
-    assert(minwin.y >= 0 && maxwin.y <= (int)h);
+    // clamp to screen, assume guard band is enough!
+    minwin.x = std::max(0, minwin.x);
+    minwin.y = std::max(0, minwin.y);
+    maxwin.x = std::min(int(w - 1), maxwin.x);
+    maxwin.y = std::min(int(h - 1), maxwin.y);
 
     int a = area(tri[0], tri[1], tri[2]);
     // skip zero-area triangles

@@ -35,6 +35,10 @@ vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32
   for(uint32_t i = 0; i < createInfoCount; i++)
   {
     VkPipeline ret = new VkPipeline_T;
+
+    ret->topology = pCreateInfos[i].pInputAssemblyState->topology;
+    ret->frontFace = pCreateInfos[i].pRasterizationState->frontFace;
+
     for(uint32_t s = 0; s < pCreateInfos[i].stageCount; s++)
     {
       if(pCreateInfos[i].pStages[s].stage == VK_SHADER_STAGE_VERTEX_BIT)

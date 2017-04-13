@@ -1,19 +1,129 @@
 #include "precompiled.h"
 #include "gpu.h"
 
-static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVerts)
+static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVerts, uint32_t first)
 {
   MICROPROFILE_SCOPEI("rasterizer", "ShadeVerts", MP_KHAKI);
 
   std::vector<VertexCacheEntry> ret;
 
-  VertexCacheEntry vert;
+  VertexCacheEntry tri[4];
 
-  for(int v = 0; v < numVerts; v++)
+  int a = 0, b = 1, c = 2;
+  if(state.pipeline->frontFace == VK_FRONT_FACE_CLOCKWISE)
+    std::swap(a, c);
+
+  if(state.pipeline->topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
   {
-    state.pipeline->vs(state, v, vert);
+    VertexCacheEntry vert;
 
-    ret.push_back(vert);
+    // only handle whole triangles
+    int lastVert = numVerts - 3;
+    for(int v = 0; v <= lastVert; v += 3)
+    {
+      state.pipeline->vs(state, v + 0 + first, tri[0]);
+      state.pipeline->vs(state, v + 1 + first, tri[1]);
+      state.pipeline->vs(state, v + 2 + first, tri[2]);
+
+      ret.push_back(tri[a]);
+      ret.push_back(tri[b]);
+      ret.push_back(tri[c]);
+    }
+  }
+  else if(state.pipeline->topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP)
+  {
+    assert(numVerts >= 3);
+
+    // strip order to preserve winding order is:
+    // N+0, N+1, N+2
+    // N+2, N+1, N+3
+    // N+2, N+3, N+4
+    // N+4, N+5, N+6
+    // ...
+    //
+    // So each pair of triangles forms the same pattern, we alternate between one and the other.
+    // Bear in mind that the strip might end after the first half of a pair so we can't just shade
+    // all 4 verts:
+    //
+    // N+0, N+1, N+2
+    // N+2, N+1, N+3
+    // M = N+2
+    // M+0, M+1, M+2
+    // M+2, M+1, M+3
+    // S = M+2
+    // S+0, S+1, S+2
+    // S+2, S+1, S+3
+
+    int a = 0, b = 1, c = 2;
+    int a2 = 2, b2 = 1, c2 = 3;
+    if(state.pipeline->frontFace == VK_FRONT_FACE_CLOCKWISE)
+    {
+      std::swap(a, c);
+      std::swap(a2, c2);
+    }
+
+    // do the first one separately when we have to emit a whole triangle
+    uint32_t vertexIndex = first;
+
+    state.pipeline->vs(state, vertexIndex, tri[0]);
+    vertexIndex++;
+    state.pipeline->vs(state, vertexIndex, tri[1]);
+    vertexIndex++;
+    state.pipeline->vs(state, vertexIndex, tri[2]);
+    vertexIndex++;
+
+    ret.push_back(tri[a]);
+    ret.push_back(tri[b]);
+    ret.push_back(tri[c]);
+
+    numVerts -= 3;
+
+    if(numVerts > 0)
+    {
+      state.pipeline->vs(state, vertexIndex, tri[3]);
+      vertexIndex++;
+      numVerts--;
+
+      ret.push_back(tri[a2]);
+      ret.push_back(tri[b2]);
+      ret.push_back(tri[c2]);
+    }
+
+    while(numVerts > 0)
+    {
+      // pull in two re-used verts from previous run.
+      // See above:
+      //
+      // M = N+2
+      // M+0, M+1, M+2
+      //
+      // so M+0 = N+2, M+1 = N+3
+      tri[0] = tri[2];
+      tri[1] = tri[3];
+
+      state.pipeline->vs(state, vertexIndex, tri[2]);
+      vertexIndex++;
+      numVerts--;
+
+      ret.push_back(tri[a]);
+      ret.push_back(tri[b]);
+      ret.push_back(tri[c]);
+
+      if(numVerts > 0)
+      {
+        state.pipeline->vs(state, vertexIndex, tri[3]);
+        vertexIndex++;
+        numVerts--;
+
+        ret.push_back(tri[a2]);
+        ret.push_back(tri[b2]);
+        ret.push_back(tri[c2]);
+      }
+    }
+  }
+  else
+  {
+    printf("Unsupported primitive topology!\n");
   }
 
   return ret;
@@ -99,13 +209,13 @@ void ClearTarget(VkImage target, const VkClearColorValue &col)
   }
 }
 
-void DrawTriangles(const GPUState &state, int numVerts)
+void DrawTriangles(const GPUState &state, int numVerts, uint32_t first)
 {
   byte *bits = state.target->pixels;
   const uint32_t w = state.target->extent.width;
   const uint32_t h = state.target->extent.height;
 
-  std::vector<VertexCacheEntry> shadedVerts = ShadeVerts(state, numVerts);
+  std::vector<VertexCacheEntry> shadedVerts = ShadeVerts(state, numVerts, first);
 
   std::vector<int4> winCoords = ToWindow(w, h, shadedVerts);
 

@@ -108,6 +108,8 @@ struct VkShaderModule_T
 
 struct VkPipeline_T
 {
+  VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
+  VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   VertexShader vs = NULL;
   FragmentShader fs = NULL;
 };

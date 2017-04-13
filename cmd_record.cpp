@@ -109,6 +109,19 @@ VKAPI_ATTR void VKAPI_CALL vkCmdDraw(VkCommandBuffer commandBuffer, uint32_t ver
   cmd->instanceCount = instanceCount;
   cmd->firstVertex = firstVertex;
   cmd->firstInstance = firstInstance;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdDrawIndexed(VkCommandBuffer commandBuffer, uint32_t indexCount,
+                                            uint32_t instanceCount, uint32_t firstIndex,
+                                            int32_t vertexOffset, uint32_t firstInstance)
+{
+  cmd::DrawIndexed *cmd = commandBuffer->push<cmd::DrawIndexed>();
+  cmd->indexCount = indexCount;
+  cmd->instanceCount = instanceCount;
+  cmd->firstIndex = firstIndex;
+  cmd->vertexOffset = vertexOffset;
+  cmd->firstInstance = firstInstance;
+}
 
 VKAPI_ATTR void VKAPI_CALL vkCmdCopyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer srcBuffer,
                                                   VkImage dstImage, VkImageLayout dstImageLayout,

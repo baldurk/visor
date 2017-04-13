@@ -1,7 +1,29 @@
 #include "precompiled.h"
 #include "gpu.h"
 
-static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVerts, uint32_t first)
+uint32_t GetIndex(const GPUState &state, uint32_t vertexIndex, bool indexed)
+{
+  if(!indexed)
+    return vertexIndex;
+
+  const byte *ib = state.ib.buffer->bytes + state.ib.offset;
+
+  if(state.ib.indexType == VK_INDEX_TYPE_UINT16)
+  {
+    uint16_t *i16 = (uint16_t *)ib;
+    i16 += vertexIndex;
+    return *i16;
+  }
+  else
+  {
+    uint32_t *i32 = (uint32_t *)ib;
+    i32 += vertexIndex;
+    return *i32;
+  }
+}
+
+static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVerts, uint32_t first,
+                                                bool indexed)
 {
   MICROPROFILE_SCOPEI("rasterizer", "ShadeVerts", MP_KHAKI);
 
@@ -19,11 +41,16 @@ static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVe
 
     // only handle whole triangles
     int lastVert = numVerts - 3;
+    uint32_t vertexIndex = first;
+
     for(int v = 0; v <= lastVert; v += 3)
     {
-      state.pipeline->vs(state, v + 0 + first, tri[0]);
-      state.pipeline->vs(state, v + 1 + first, tri[1]);
-      state.pipeline->vs(state, v + 2 + first, tri[2]);
+      state.pipeline->vs(state, GetIndex(state, vertexIndex, indexed), tri[0]);
+      vertexIndex++;
+      state.pipeline->vs(state, GetIndex(state, vertexIndex, indexed), tri[1]);
+      vertexIndex++;
+      state.pipeline->vs(state, GetIndex(state, vertexIndex, indexed), tri[2]);
+      vertexIndex++;
 
       ret.push_back(tri[a]);
       ret.push_back(tri[b]);
@@ -65,11 +92,11 @@ static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVe
     // do the first one separately when we have to emit a whole triangle
     uint32_t vertexIndex = first;
 
-    state.pipeline->vs(state, vertexIndex, tri[0]);
+    state.pipeline->vs(state, GetIndex(state, vertexIndex, indexed), tri[0]);
     vertexIndex++;
-    state.pipeline->vs(state, vertexIndex, tri[1]);
+    state.pipeline->vs(state, GetIndex(state, vertexIndex, indexed), tri[1]);
     vertexIndex++;
-    state.pipeline->vs(state, vertexIndex, tri[2]);
+    state.pipeline->vs(state, GetIndex(state, vertexIndex, indexed), tri[2]);
     vertexIndex++;
 
     ret.push_back(tri[a]);
@@ -80,7 +107,7 @@ static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVe
 
     if(numVerts > 0)
     {
-      state.pipeline->vs(state, vertexIndex, tri[3]);
+      state.pipeline->vs(state, GetIndex(state, vertexIndex, indexed), tri[3]);
       vertexIndex++;
       numVerts--;
 
@@ -101,7 +128,7 @@ static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVe
       tri[0] = tri[2];
       tri[1] = tri[3];
 
-      state.pipeline->vs(state, vertexIndex, tri[2]);
+      state.pipeline->vs(state, GetIndex(state, vertexIndex, indexed), tri[2]);
       vertexIndex++;
       numVerts--;
 
@@ -111,7 +138,7 @@ static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVe
 
       if(numVerts > 0)
       {
-        state.pipeline->vs(state, vertexIndex, tri[3]);
+        state.pipeline->vs(state, GetIndex(state, vertexIndex, indexed), tri[3]);
         vertexIndex++;
         numVerts--;
 
@@ -215,14 +242,14 @@ void ClearTarget(VkImage target, const VkClearColorValue &col)
   }
 }
 
-void DrawTriangles(const GPUState &state, int numVerts, uint32_t first)
+void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool indexed)
 {
   byte *bits = state.target->pixels;
   const uint32_t w = state.target->extent.width;
   const uint32_t h = state.target->extent.height;
   const uint32_t bpp = state.target->bytesPerPixel;
 
-  std::vector<VertexCacheEntry> shadedVerts = ShadeVerts(state, numVerts, first);
+  std::vector<VertexCacheEntry> shadedVerts = ShadeVerts(state, numVerts, first, indexed);
 
   std::vector<int4> winCoords = ToWindow(w, h, shadedVerts);
 

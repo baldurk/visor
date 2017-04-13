@@ -12,10 +12,6 @@ const T &pull(const byte **offs)
   return *ret;
 }
 
-void ClearTarget(VkImage target, const VkClearColorValue &col);
-
-void DrawTriangles(const GPUState &state, int numVerts, uint32_t first);
-
 void VkCommandBuffer_T::execute() const
 {
   const byte *cur = commandStream.data();
@@ -115,7 +111,14 @@ void VkCommandBuffer_T::execute() const
       {
         const cmd::Draw &data = pull<cmd::Draw>(&cur);
 
-        DrawTriangles(state, data.vertexCount, data.firstVertex);
+        DrawTriangles(state, data.vertexCount, data.firstVertex, false);
+        break;
+      }
+      case Command::DrawIndexed:
+      {
+        const cmd::DrawIndexed &data = pull<cmd::DrawIndexed>(&cur);
+
+        DrawTriangles(state, data.indexCount, data.firstIndex, true);
         break;
       }
       case Command::CopyBuf2Img:

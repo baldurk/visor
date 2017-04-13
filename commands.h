@@ -65,6 +65,13 @@ struct Draw
   uint32_t vertexCount, instanceCount, firstVertex, firstInstance;
 };
 
+struct DrawIndexed
+{
+  static const Command CommandID = Command::DrawIndexed;
+  uint32_t indexCount, instanceCount, firstIndex, firstInstance;
+  int32_t vertexOffset;
+};
+
 struct CopyBuf2Img
 {
   static const Command CommandID = Command::CopyBuf2Img;

@@ -52,3 +52,6 @@ struct VertexCacheEntry
   float4 position;
   float4 interps[8];
 };
+
+void ClearTarget(VkImage target, const VkClearColorValue &col);
+void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool indexed);

@@ -14,8 +14,7 @@ const T &pull(const byte **offs)
 
 void ClearTarget(VkImage target, const VkClearColorValue &col);
 
-void DrawTriangles(VkImage target, int numVerts, const float *pos, const float *UV,
-                   const float *MVP, const VkImage tex);
+void DrawTriangles(const GPUState &state, int numVerts);
 
 void VkCommandBuffer_T::execute() const
 {
@@ -97,21 +96,7 @@ void VkCommandBuffer_T::execute() const
       {
         const cmd::Draw &data = pull<cmd::Draw>(&cur);
 
-        // hack since we don't have shaders compiled to reflect...
-
-        const VkBuffer ubo = state.set->binds[0].data.bufferInfo.buffer;
-        VkDeviceSize offs = state.set->binds[0].data.bufferInfo.offset;
-
-        const VkImage tex = state.set->binds[1].data.imageInfo.imageView->image;
-
-        if(ubo && tex)
-        {
-          const float *mvp = (const float *)(ubo->bytes + offs);
-          const float *pos = mvp + 4 * 4;
-          const float *UV = pos + 12 * 3 * 4;
-
-          DrawTriangles(state.target, data.vertexCount, pos, UV, mvp, tex);
-        }
+        DrawTriangles(state, data.vertexCount);
         break;
       }
     }

@@ -42,9 +42,9 @@ struct VertexCacheEntry;
 struct float4;
 
 typedef void (*Shader)();
-typedef void (*VertexShader)(const GPUState &state, VertexCacheEntry &out);
+typedef void (*VertexShader)(const GPUState &state, uint32_t vertexIndex, VertexCacheEntry &out);
 typedef void (*FragmentShader)(const GPUState &state, float pixdepth, const float4 &bary,
-                               VertexCacheEntry tri[3], float4 &out);
+                               const VertexCacheEntry tri[3], float4 &out);
 
 struct VkCommandBuffer_T
 {

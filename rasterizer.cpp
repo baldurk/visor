@@ -165,6 +165,11 @@ static void MinMax(const int4 *coords, int4 &minwin, int4 &maxwin)
   }
 }
 
+static int area(const int4 &a, const int4 &b, const int4 &c)
+{
+  return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
 static int4 cross(int4 a, int4 b)
 {
   return int4((a.y * b.z) - (b.y * a.z), (a.z * b.x) - (b.z * a.x), (a.x * b.y) - (b.x * a.y), 1);
@@ -243,6 +248,26 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first)
     assert(minwin.x >= 0 && maxwin.x <= (int)w);
     assert(minwin.y >= 0 && maxwin.y <= (int)h);
 
+    int a = area(tri[0], tri[1], tri[2]);
+    // skip zero-area triangles
+    if(a == 0)
+      continue;
+
+    // cull front-faces if desired
+    if(a > 0 && (state.pipeline->cullMode & VK_CULL_MODE_FRONT_BIT))
+      continue;
+
+    int barymul = 1;
+    if(a < 0)
+    {
+      // cull back-faces if desired
+      if(state.pipeline->cullMode & VK_CULL_MODE_BACK_BIT)
+        continue;
+
+      // otherwise flip barycentrics
+      barymul = -1;
+    }
+
     MICROPROFILE_SCOPEI("rasterizer", "TriLoop", MP_BLUE);
 
     for(int y = minwin.y; y < maxwin.y; y++)
@@ -250,6 +275,11 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first)
       for(int x = minwin.x; x < maxwin.x; x++)
       {
         int4 b = barycentric(tri, int4(x, y, 0, 0));
+
+        b.x *= barymul;
+        b.y *= barymul;
+        b.z *= barymul;
+        b.w *= barymul;
 
         if(b.x >= 0 && b.y >= 0 && b.z >= 0)
         {

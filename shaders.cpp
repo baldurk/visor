@@ -38,6 +38,7 @@ vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32
 
     ret->topology = pCreateInfos[i].pInputAssemblyState->topology;
     ret->frontFace = pCreateInfos[i].pRasterizationState->frontFace;
+    ret->cullMode = pCreateInfos[i].pRasterizationState->cullMode;
 
     for(uint32_t s = 0; s < pCreateInfos[i].stageCount; s++)
     {

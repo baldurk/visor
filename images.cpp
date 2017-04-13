@@ -23,6 +23,9 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateImage(VkDevice device, const VkImageCreat
   VkImage ret = new VkImage_T;
   ret->pixels = NULL;    // no memory bound
   ret->extent = {pCreateInfo->extent.width, pCreateInfo->extent.height};
+  ret->bytesPerPixel = 4;
+  if(pCreateInfo->format == VK_FORMAT_R8_UNORM)
+    ret->bytesPerPixel = 1;
   *pImage = ret;
   return VK_SUCCESS;
 }
@@ -46,7 +49,7 @@ VKAPI_ATTR void VKAPI_CALL vkGetImageMemoryRequirements(VkDevice device, VkImage
   // TODO
   pMemoryRequirements->alignment = 1;
   pMemoryRequirements->memoryTypeBits = 0x3;
-  pMemoryRequirements->size = image->extent.width * image->extent.height * 4;
+  pMemoryRequirements->size = image->extent.width * image->extent.height * image->bytesPerPixel;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkGetImageSubresourceLayout(VkDevice device, VkImage image,
@@ -57,7 +60,7 @@ VKAPI_ATTR void VKAPI_CALL vkGetImageSubresourceLayout(VkDevice device, VkImage 
          pSubresource->aspectMask == VK_IMAGE_ASPECT_COLOR_BIT);
 
   pLayout->offset = 0;
-  pLayout->rowPitch = image->extent.width * 4;
+  pLayout->rowPitch = image->extent.width * image->bytesPerPixel;
   pLayout->arrayPitch = pLayout->depthPitch = pLayout->size =
-      image->extent.width * image->extent.height * 4;
+      image->extent.width * image->extent.height * image->bytesPerPixel;
 }

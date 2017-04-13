@@ -193,6 +193,7 @@ void ClearTarget(VkImage target, const VkClearColorValue &col)
   byte *bits = target->pixels;
   const uint32_t w = target->extent.width;
   const uint32_t h = target->extent.height;
+  const uint32_t bpp = target->bytesPerPixel;
 
   byte eval[4];
   eval[2] = byte(col.float32[0] * 255.0f);
@@ -204,7 +205,7 @@ void ClearTarget(VkImage target, const VkClearColorValue &col)
   {
     for(uint32_t y = 0; y < h; y++)
     {
-      memcpy(&bits[y * w * 4 + x * 4], eval, sizeof(eval));
+      memcpy(&bits[(y * w + x) * bpp], eval, bpp);
     }
   }
 }
@@ -214,6 +215,7 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first)
   byte *bits = state.target->pixels;
   const uint32_t w = state.target->extent.width;
   const uint32_t h = state.target->extent.height;
+  const uint32_t bpp = state.target->bytesPerPixel;
 
   std::vector<VertexCacheEntry> shadedVerts = ShadeVerts(state, numVerts, first);
 
@@ -273,9 +275,9 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first)
           float4 pix;
           state.pipeline->fs(state, pixdepth, n, vsout, pix);
 
-          bits[y * w * 4 + x * 4 + 2] = byte(pix.x * 255.0f);
-          bits[y * w * 4 + x * 4 + 1] = byte(pix.y * 255.0f);
-          bits[y * w * 4 + x * 4 + 0] = byte(pix.z * 255.0f);
+          bits[(y * w + x) * bpp + 2] = byte(pix.x * 255.0f);
+          bits[(y * w + x) * bpp + 1] = byte(pix.y * 255.0f);
+          bits[(y * w + x) * bpp + 0] = byte(pix.z * 255.0f);
 
           written++;
         }

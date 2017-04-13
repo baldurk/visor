@@ -63,10 +63,10 @@ void vkcube_fs(const GPUState &state, float pixdepth, const float4 &bary,
   float fu = u - float(iu0);
   float fv = v - float(iv0);
 
-  byte *TL = &tex->pixels[(iv0 * tex->extent.width + iu0) * 4];
-  byte *TR = &tex->pixels[(iv0 * tex->extent.width + iu1) * 4];
-  byte *BL = &tex->pixels[(iv1 * tex->extent.width + iu0) * 4];
-  byte *BR = &tex->pixels[(iv1 * tex->extent.width + iu1) * 4];
+  byte *TL = &tex->pixels[(iv0 * tex->extent.width + iu0) * tex->bytesPerPixel];
+  byte *TR = &tex->pixels[(iv0 * tex->extent.width + iu1) * tex->bytesPerPixel];
+  byte *BL = &tex->pixels[(iv1 * tex->extent.width + iu0) * tex->bytesPerPixel];
+  byte *BR = &tex->pixels[(iv1 * tex->extent.width + iu1) * tex->bytesPerPixel];
 
   float4 top;
   top.x = float(TL[0]) * (1.0f - fu) + float(TR[0]) * fu;

@@ -125,8 +125,9 @@ void VkCommandBuffer_T::execute() const
         // only support tight packed copies right now
         assert(data.region.bufferRowLength == 0 && data.region.bufferOffset == 0);
 
-        memcpy(data.dstImage->pixels, data.srcBuffer->bytes,
-               data.dstImage->extent.width * data.dstImage->extent.height * 4);
+        memcpy(data.dstImage->pixels, data.srcBuffer->bytes, data.dstImage->extent.width *
+                                                                 data.dstImage->extent.height *
+                                                                 data.dstImage->bytesPerPixel);
 
         break;
       }

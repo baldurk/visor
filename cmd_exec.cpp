@@ -116,6 +116,17 @@ void VkCommandBuffer_T::execute() const
         const cmd::Draw &data = pull<cmd::Draw>(&cur);
 
         DrawTriangles(state, data.vertexCount);
+      }
+      case Command::CopyBuf2Img:
+      {
+        const cmd::CopyBuf2Img &data = pull<cmd::CopyBuf2Img>(&cur);
+
+        // only support tight packed copies right now
+        assert(data.region.bufferRowLength == 0 && data.region.bufferOffset == 0);
+
+        memcpy(data.dstImage->pixels, data.srcBuffer->bytes,
+               data.dstImage->extent.width * data.dstImage->extent.height * 4);
+
         break;
       }
     }

@@ -109,4 +109,15 @@ VKAPI_ATTR void VKAPI_CALL vkCmdDraw(VkCommandBuffer commandBuffer, uint32_t ver
   cmd->instanceCount = instanceCount;
   cmd->firstVertex = firstVertex;
   cmd->firstInstance = firstInstance;
+
+VKAPI_ATTR void VKAPI_CALL vkCmdCopyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer srcBuffer,
+                                                  VkImage dstImage, VkImageLayout dstImageLayout,
+                                                  uint32_t regionCount,
+                                                  const VkBufferImageCopy *pRegions)
+{
+  cmd::CopyBuf2Img *cmd = commandBuffer->push<cmd::CopyBuf2Img>();
+  cmd->srcBuffer = srcBuffer;
+  cmd->dstImage = dstImage;
+  assert(regionCount == 1);
+  cmd->region = pRegions[0];
 }

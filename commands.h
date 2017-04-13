@@ -64,4 +64,12 @@ struct Draw
   static const Command CommandID = Command::Draw;
   uint32_t vertexCount, instanceCount, firstVertex, firstInstance;
 };
+
+struct CopyBuf2Img
+{
+  static const Command CommandID = Command::CopyBuf2Img;
+  VkBuffer srcBuffer;
+  VkImage dstImage;
+  VkBufferImageCopy region;
+};
 };

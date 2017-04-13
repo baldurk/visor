@@ -105,23 +105,6 @@ VKAPI_ATTR void VKAPI_CALL vkDestroySampler(VkDevice device, VkSampler sampler,
   // nothing to do
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL vkCreateShaderModule(VkDevice device,
-                                                    const VkShaderModuleCreateInfo *pCreateInfo,
-                                                    const VkAllocationCallbacks *pAllocator,
-                                                    VkShaderModule *pShaderModule)
-{
-  // TODO but for now return unique values
-  static uint64_t nextShaderModule = 1;
-  *pShaderModule = (VkShaderModule)(nextShaderModule++);
-  return VK_SUCCESS;
-}
-
-VKAPI_ATTR void VKAPI_CALL vkDestroyShaderModule(VkDevice device, VkShaderModule shaderModule,
-                                                 const VkAllocationCallbacks *pAllocator)
-{
-  // nothing to do
-}
-
 VKAPI_ATTR VkResult VKAPI_CALL vkCreatePipelineCache(VkDevice device,
                                                      const VkPipelineCacheCreateInfo *pCreateInfo,
                                                      const VkAllocationCallbacks *pAllocator,
@@ -135,36 +118,6 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreatePipelineCache(VkDevice device,
 
 VKAPI_ATTR void VKAPI_CALL vkDestroyPipelineCache(VkDevice device, VkPipelineCache pipelineCache,
                                                   const VkAllocationCallbacks *pAllocator)
-{
-  // nothing to do
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL
-vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount,
-                          const VkGraphicsPipelineCreateInfo *pCreateInfos,
-                          const VkAllocationCallbacks *pAllocator, VkPipeline *pPipelines)
-{
-  // TODO but for now return unique values
-  static uint64_t nextGraphicsPipeline = 1;
-  for(uint32_t i = 0; i < createInfoCount; i++)
-    pPipelines[i] = (VkPipeline)(nextGraphicsPipeline++);
-  return VK_SUCCESS;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL
-vkCreateComputePipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount,
-                         const VkComputePipelineCreateInfo *pCreateInfos,
-                         const VkAllocationCallbacks *pAllocator, VkPipeline *pPipelines)
-{
-  // TODO but for now return unique values
-  static uint64_t nextComputePipeline = 1;
-  for(uint32_t i = 0; i < createInfoCount; i++)
-    pPipelines[i] = (VkPipeline)(nextComputePipeline++);
-  return VK_SUCCESS;
-}
-
-VKAPI_ATTR void VKAPI_CALL vkDestroyPipeline(VkDevice device, VkPipeline pipeline,
-                                             const VkAllocationCallbacks *pAllocator)
 {
   // nothing to do
 }

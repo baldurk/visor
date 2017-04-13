@@ -1,36 +1,9 @@
 #include "precompiled.h"
+#include "gpu.h"
 
-struct int4
+static std::vector<float4> ShadeVerts(const float *pos, int numVerts, const float *MVP)
 {
-  int4() {}
-  int4(int X, int Y, int Z, int W) : x(X), y(Y), z(Z), w(W) {}
-  union
-  {
-    struct
-    {
-      int x, y, z, w;
-    };
-    int v[4];
-  };
-};
-
-struct float4
-{
-  float4() {}
-  float4(float X, float Y, float Z, float W) : x(X), y(Y), z(Z), w(W) {}
-  union
-  {
-    struct
-    {
-      float x, y, z, w;
-    };
-    float v[4];
-  };
-};
-
-static std::vector<float4> VertexShader(const float *pos, int numVerts, const float *MVP)
-{
-  MICROPROFILE_SCOPEI("rasterizer", "VertexShader", MP_KHAKI);
+  MICROPROFILE_SCOPEI("rasterizer", "ShadeVerts", MP_KHAKI);
 
   std::vector<float4> ret;
 
@@ -193,7 +166,7 @@ void DrawTriangles(VkImage target, int numVerts, const float *pos, const float *
   const uint32_t w = target->extent.width;
   const uint32_t h = target->extent.height;
 
-  std::vector<float4> homogCoords = VertexShader(pos, numVerts, MVP);
+  std::vector<float4> homogCoords = ShadeVerts(pos, numVerts, MVP);
 
   std::vector<int4> winCoords = ToWindow(w, h, homogCoords);
 

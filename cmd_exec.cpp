@@ -1,5 +1,6 @@
 #include "precompiled.h"
 #include "commands.h"
+#include "gpu.h"
 
 template <typename T>
 const T &pull(const byte **offs)
@@ -10,14 +11,6 @@ const T &pull(const byte **offs)
 
   return *ret;
 }
-
-struct GPUState
-{
-  VkViewport view;
-  VkImage target;
-  VkPipeline pipeline;
-  VkDescriptorSet set;
-};
 
 void ClearTarget(VkImage target, const VkClearColorValue &col);
 

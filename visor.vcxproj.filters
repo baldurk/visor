@@ -19,6 +19,8 @@
     <ClCompile Include="cmd_exec.cpp" />
     <ClCompile Include="stats.cpp" />
     <ClCompile Include="descriptors.cpp" />
+    <ClCompile Include="shaders.cpp" />
+    <ClCompile Include="premade_shaders.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="precompiled.h" />
@@ -38,6 +40,8 @@
       <Filter>3rdparty\microprofile</Filter>
     </ClInclude>
     <ClInclude Include="commands.h" />
+    <ClInclude Include="gpu.h" />
+    <ClInclude Include="premade_shaders.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="visor.json" />

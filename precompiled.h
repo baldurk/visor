@@ -37,6 +37,15 @@ enum class Command : uint16_t
   Draw,
 };
 
+struct GPUState;
+struct VertexCacheEntry;
+struct float4;
+
+typedef void (*Shader)();
+typedef void (*VertexShader)(const GPUState &state, VertexCacheEntry &out);
+typedef void (*FragmentShader)(const GPUState &state, float pixdepth, const float4 &bary,
+                               VertexCacheEntry tri[3], float4 &out);
+
 struct VkCommandBuffer_T
 {
   uintptr_t loaderMagic;
@@ -84,6 +93,17 @@ struct VkBuffer_T
 {
   VkDeviceSize size = 0;
   byte *bytes = NULL;
+};
+
+struct VkShaderModule_T
+{
+  Shader func = NULL;
+};
+
+struct VkPipeline_T
+{
+  VertexShader vs = NULL;
+  FragmentShader fs = NULL;
 };
 
 struct VkDescriptorSetLayout_T
@@ -159,3 +179,13 @@ void InitFrameStats();
 void BeginFrameStats();
 void EndFrameStats();
 void ShutdownFrameStats();
+
+inline uint32_t hashSPV(const uint32_t *spv, size_t numWords)
+{
+  uint32_t hash = 5381;
+
+  for(uint32_t i = 0; i < numWords; i++)
+    hash = ((hash << 5) + hash) + spv[i]; /* hash * 33 + c */
+
+  return hash;
+}

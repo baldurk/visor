@@ -166,10 +166,12 @@
     <ClCompile Include="cmd_record.cpp" />
     <ClCompile Include="descriptors.cpp" />
     <ClCompile Include="images.cpp" />
+    <ClCompile Include="premade_shaders.cpp" />
     <ClCompile Include="query.cpp" />
     <ClCompile Include="icd_stubs.cpp" />
     <ClCompile Include="cmd_exec.cpp" />
     <ClCompile Include="renderpass.cpp" />
+    <ClCompile Include="shaders.cpp" />
     <ClCompile Include="stats.cpp" />
     <ClCompile Include="wsi.cpp" />
     <ClCompile Include="memory.cpp" />
@@ -184,7 +186,9 @@
     <ClInclude Include="3rdparty\vk_platform.h" />
     <ClInclude Include="3rdparty\vulkan.h" />
     <ClInclude Include="commands.h" />
+    <ClInclude Include="gpu.h" />
     <ClInclude Include="precompiled.h" />
+    <ClInclude Include="premade_shaders.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="visor.json" />

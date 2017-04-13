@@ -92,7 +92,8 @@
   ICD_FUNC(vkQueueSubmit);                 \
   ICD_FUNC(vkWaitForFences);               \
   ICD_FUNC(vkResetFences);                 \
-  ICD_FUNC(vkDeviceWaitIdle);
+  ICD_FUNC(vkDeviceWaitIdle);              \
+  ICD_FUNC(vkQueueWaitIdle);
 
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkDevice device, const char *pName)
 {

@@ -143,3 +143,9 @@ VKAPI_ATTR VkResult VKAPI_CALL vkDeviceWaitIdle(VkDevice device)
   // TODO
   return VK_SUCCESS;
 }
+
+VKAPI_ATTR VkResult VKAPI_CALL vkQueueWaitIdle(VkQueue queue)
+{
+  // TODO
+  return VK_SUCCESS;
+}

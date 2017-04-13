@@ -277,5 +277,13 @@ VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceFormatProperties(VkPhysicalDevice 
   pFormatProperties->linearTilingFeatures = VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT |
                                             VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT |
                                             VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT;
+
+  if(format == VK_FORMAT_D32_SFLOAT || format == VK_FORMAT_D32_SFLOAT_S8_UINT)
+  {
+    pFormatProperties->bufferFeatures = 0;
+    pFormatProperties->linearTilingFeatures =
+        VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+  }
+
   pFormatProperties->optimalTilingFeatures = pFormatProperties->linearTilingFeatures;
 }

@@ -46,6 +46,9 @@ typedef void (*VertexShader)(const GPUState &state, uint32_t vertexIndex, Vertex
 typedef void (*FragmentShader)(const GPUState &state, float pixdepth, const float4 &bary,
                                const VertexCacheEntry tri[3], float4 &out);
 
+void InitPremadeShaders();
+Shader GetPremadeShader(uint32_t hash);
+
 struct VkCommandBuffer_T
 {
   uintptr_t loaderMagic;

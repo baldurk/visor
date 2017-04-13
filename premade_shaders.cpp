@@ -1,4 +1,6 @@
 #include "precompiled.h"
+#include <map>
+#include <utility>
 #include "gpu.h"
 
 static float dot(const float4 &a, const float4 &b)
@@ -80,4 +82,44 @@ void vkcube_fs(const GPUState &state, float pixdepth, const float4 &bary,
   out.y = (top.y * (1.0f - fv) + bottom.y * fv) / 255.0f;
   out.z = (top.z * (1.0f - fv) + bottom.z * fv) / 255.0f;
   out.w = 1.0f;
+}
+
+void sascha_textoverlay_vs(const GPUState &state, uint32_t vertexIndex, VertexCacheEntry &out)
+{
+}
+
+void sascha_textoverlay_fs(const GPUState &state, float pixdepth, const float4 &bary,
+                           const VertexCacheEntry tri[3], float4 &out)
+{
+}
+
+void sascha_texture_vs(const GPUState &state, uint32_t vertexIndex, VertexCacheEntry &out)
+{
+}
+
+void sascha_texture_fs(const GPUState &state, float pixdepth, const float4 &bary,
+                       const VertexCacheEntry tri[3], float4 &out)
+{
+}
+
+static std::map<uint32_t, Shader> premadeShaderMap;
+
+void InitPremadeShaders()
+{
+  if(premadeShaderMap.empty())
+  {
+    premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(2469737040, (Shader)&vkcube_vs));
+    premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(676538074, (Shader)&vkcube_fs));
+    premadeShaderMap.insert(
+        std::make_pair<uint32_t, Shader>(3142150232, (Shader)&sascha_textoverlay_vs));
+    premadeShaderMap.insert(
+        std::make_pair<uint32_t, Shader>(4293881502, (Shader)&sascha_textoverlay_fs));
+    premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(3054859395, (Shader)&sascha_texture_vs));
+    premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(3971494927, (Shader)&sascha_texture_fs));
+  }
+}
+
+Shader GetPremadeShader(uint32_t hash)
+{
+  return premadeShaderMap[hash];
 }

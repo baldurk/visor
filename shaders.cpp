@@ -1,5 +1,4 @@
 #include "precompiled.h"
-#include "premade_shaders.h"
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateShaderModule(VkDevice device,
                                                     const VkShaderModuleCreateInfo *pCreateInfo,
@@ -10,23 +9,12 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateShaderModule(VkDevice device,
 
   uint32_t hash = hashSPV(pCreateInfo->pCode, pCreateInfo->codeSize / sizeof(uint32_t));
 
-  switch(hash)
+  ret->func = GetPremadeShader(hash);
+
+  if(ret->func == NULL)
   {
-    case 2469737040:
-    {
-      ret->func = (Shader)&vkcube_vs;
-      break;
-    }
-    case 676538074:
-    {
-      ret->func = (Shader)&vkcube_fs;
-      break;
-    }
-    default:
-    {
-      printf("Unrecognised/hacked shader! whoops!");
-      return VK_ERROR_DEVICE_LOST;
-    }
+    printf("Unrecognised/hacked shader! whoops!");
+    return VK_ERROR_DEVICE_LOST;
   }
 
   *pShaderModule = ret;

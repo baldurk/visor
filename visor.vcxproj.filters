@@ -41,7 +41,6 @@
     </ClInclude>
     <ClInclude Include="commands.h" />
     <ClInclude Include="gpu.h" />
-    <ClInclude Include="premade_shaders.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="visor.json" />

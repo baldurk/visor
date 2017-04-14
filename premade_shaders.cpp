@@ -82,9 +82,12 @@ static void normalize3(float4 &a)
   a.z /= len;
 }
 
+MICROPROFILE_DEFINE(vkcube_vs, "premade_shaders", "vkcube_vs", MP_BLACK);
+MICROPROFILE_DEFINE(sascha_textoverlay_vs, "premade_shaders", "sascha_textoverlay_vs", MP_BLACK);
+MICROPROFILE_DEFINE(sascha_texture_vs, "premade_shaders", "sascha_texture_vs", MP_BLACK);
 void vkcube_vs(const GPUState &state, uint32_t vertexIndex, VertexCacheEntry &out)
 {
-  MICROPROFILE_SCOPEI("rasterizer", "vkcube_vs", MP_WHITE);
+  MICROPROFILE_SCOPE(vkcube_vs);
 
   const VkDescriptorBufferInfo &buf = state.set->binds[0].data.bufferInfo;
   const VkBuffer ubo = buf.buffer;
@@ -162,6 +165,8 @@ void vkcube_fs(const GPUState &state, float pixdepth, const float4 &bary,
 
 void sascha_textoverlay_vs(const GPUState &state, uint32_t vertexIndex, VertexCacheEntry &out)
 {
+  MICROPROFILE_SCOPE(sascha_textoverlay_vs);
+
   const float *pos = (const float *)(state.vbs[0].buffer->bytes + state.vbs[0].offset);
   const float *UV = (const float *)(state.vbs[1].buffer->bytes + state.vbs[1].offset);
 
@@ -226,6 +231,8 @@ void sascha_textoverlay_fs(const GPUState &state, float pixdepth, const float4 &
 
 void sascha_texture_vs(const GPUState &state, uint32_t vertexIndex, VertexCacheEntry &out)
 {
+  MICROPROFILE_SCOPE(sascha_texture_vs);
+
   const float *inPos = (const float *)(state.vbs[0].buffer->bytes + state.vbs[0].offset);
 
   inPos += 8 * vertexIndex;

@@ -15,6 +15,7 @@
 #include "3rdparty/microprofile.h"
 #include "3rdparty/vk_icd.h"
 #include "3rdparty/vulkan.h"
+#include "stats.h"
 
 typedef unsigned char byte;
 
@@ -185,11 +186,6 @@ struct VkSwapchainKHR_T
 
   uint32_t current = 0;
 };
-
-void InitFrameStats();
-void BeginFrameStats();
-void EndFrameStats();
-void ShutdownFrameStats();
 
 inline uint32_t hashSPV(const uint32_t *spv, size_t numWords)
 {

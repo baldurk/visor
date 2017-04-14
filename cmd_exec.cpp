@@ -141,6 +141,8 @@ void VkCommandBuffer_T::execute() const
 VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit(VkQueue queue, uint32_t submitCount,
                                              const VkSubmitInfo *pSubmits, VkFence fence)
 {
+  MICROPROFILE_SCOPE(vkQueueSubmit);
+
   for(uint32_t i = 0; i < submitCount; i++)
   {
     for(uint32_t c = 0; c < pSubmits[i].commandBufferCount; c++)

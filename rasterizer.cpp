@@ -25,7 +25,7 @@ uint32_t GetIndex(const GPUState &state, uint32_t vertexIndex, bool indexed)
 static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVerts, uint32_t first,
                                                 bool indexed)
 {
-  MICROPROFILE_SCOPEI("rasterizer", "ShadeVerts", MP_KHAKI);
+  MICROPROFILE_SCOPE(rasterizer_ShadeVerts);
 
   std::vector<VertexCacheEntry> ret;
 
@@ -158,7 +158,7 @@ static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVe
 
 static std::vector<int4> ToWindow(uint32_t w, uint32_t h, const std::vector<VertexCacheEntry> &pos)
 {
-  MICROPROFILE_SCOPEI("rasterizer", "ToWindow", MP_GREEN);
+  MICROPROFILE_SCOPE(rasterizer_ToWindow);
 
   std::vector<int4> ret;
 
@@ -177,7 +177,7 @@ static std::vector<int4> ToWindow(uint32_t w, uint32_t h, const std::vector<Vert
 
 static void MinMax(const int4 *coords, int4 &minwin, int4 &maxwin)
 {
-  MICROPROFILE_SCOPEI("rasterizer", "MinMax", MP_PURPLE);
+  MICROPROFILE_SCOPE(rasterizer_MinMax);
 
   minwin = {INT_MAX, INT_MAX, INT_MAX, INT_MAX};
   maxwin = {INT_MIN, INT_MIN, INT_MIN, INT_MIN};
@@ -213,14 +213,9 @@ static int4 barycentric(const int4 *verts, const int4 &pixel)
   return int4(u.z - (u.x + u.y), u.x, u.y, u.z);
 }
 
-static float4 PixelShader(float4 bary, float pixdepth, const float4 *homog, const float *UV,
-                          const VkImage tex)
-{
-}
-
 void ClearTarget(VkImage target, const VkClearColorValue &col)
 {
-  MICROPROFILE_SCOPEI("rasterizer", "clear RTV", MP_RED);
+  MICROPROFILE_SCOPE(rasterizer_ClearTarget);
 
   byte *bits = target->pixels;
   const uint32_t w = target->extent.width;
@@ -244,6 +239,8 @@ void ClearTarget(VkImage target, const VkClearColorValue &col)
 
 void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool indexed)
 {
+  MICROPROFILE_SCOPE(rasterizer_DrawTriangles);
+
   byte *bits = state.target->pixels;
   const uint32_t w = state.target->extent.width;
   const uint32_t h = state.target->extent.height;
@@ -253,7 +250,7 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
 
   std::vector<int4> winCoords = ToWindow(w, h, shadedVerts);
 
-  int written = 0, tested = 0, tris_in = 0;
+  int written = 0, tested = 0, tris_in = 0, tris_out = 0;
 
   const int4 *tri = winCoords.data();
   const VertexCacheEntry *vsout = shadedVerts.data();
@@ -297,6 +294,8 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
       // otherwise flip barycentrics
       barymul = -1;
     }
+
+    tris_out++;
 
     MICROPROFILE_SCOPEI("rasterizer", "TriLoop", MP_BLUE);
 
@@ -353,4 +352,6 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
   MICROPROFILE_COUNTER_ADD("rasterizer/pixels/tested", tested);
   MICROPROFILE_COUNTER_ADD("rasterizer/pixels/written", written);
   MICROPROFILE_COUNTER_ADD("rasterizer/triangles/in", tris_in);
+  MICROPROFILE_COUNTER_ADD("rasterizer/triangles/out", tris_out);
+  MICROPROFILE_COUNTER_ADD("rasterizer/draws/in", 1);
 }

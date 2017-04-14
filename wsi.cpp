@@ -200,16 +200,18 @@ VKAPI_ATTR VkResult VKAPI_CALL vkAcquireNextImageKHR(VkDevice device, VkSwapchai
 
 VKAPI_ATTR VkResult VKAPI_CALL vkQueuePresentKHR(VkQueue queue, const VkPresentInfoKHR *pPresentInfo)
 {
-  EndFrameStats();
-
   for(uint32_t i = 0; i < pPresentInfo->swapchainCount; i++)
   {
+    MICROPROFILE_SCOPE(vkQueuePresentKHR);
+
     const VkSwapchainKHR &swap = pPresentInfo->pSwapchains[i];
 
     const VkSwapchainKHR_T::Backbuffer &bb = swap->backbuffers[pPresentInfo->pImageIndices[i]];
 
     BitBlt(swap->dc, 0, 0, swap->extent.width, swap->extent.height, bb.dc, 0, 0, SRCCOPY);
   }
+
+  EndFrameStats();
 
   BeginFrameStats();
 

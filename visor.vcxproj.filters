@@ -41,6 +41,7 @@
     </ClInclude>
     <ClInclude Include="commands.h" />
     <ClInclude Include="gpu.h" />
+    <ClInclude Include="stats.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="visor.json" />

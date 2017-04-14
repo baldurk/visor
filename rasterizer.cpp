@@ -22,12 +22,10 @@ uint32_t GetIndex(const GPUState &state, uint32_t vertexIndex, bool indexed)
   }
 }
 
-static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVerts, uint32_t first,
-                                                bool indexed)
+static void ShadeVerts(const GPUState &state, int numVerts, uint32_t first, bool indexed,
+                       std::vector<VertexCacheEntry> &out)
 {
   MICROPROFILE_SCOPE(rasterizer_ShadeVerts);
-
-  std::vector<VertexCacheEntry> ret;
 
   VertexCacheEntry tri[4];
 
@@ -52,9 +50,9 @@ static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVe
       state.pipeline->vs(state, GetIndex(state, vertexIndex, indexed), tri[2]);
       vertexIndex++;
 
-      ret.push_back(tri[a]);
-      ret.push_back(tri[b]);
-      ret.push_back(tri[c]);
+      out.push_back(tri[a]);
+      out.push_back(tri[b]);
+      out.push_back(tri[c]);
     }
   }
   else if(state.pipeline->topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP)
@@ -99,9 +97,9 @@ static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVe
     state.pipeline->vs(state, GetIndex(state, vertexIndex, indexed), tri[2]);
     vertexIndex++;
 
-    ret.push_back(tri[a]);
-    ret.push_back(tri[b]);
-    ret.push_back(tri[c]);
+    out.push_back(tri[a]);
+    out.push_back(tri[b]);
+    out.push_back(tri[c]);
 
     numVerts -= 3;
 
@@ -111,9 +109,9 @@ static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVe
       vertexIndex++;
       numVerts--;
 
-      ret.push_back(tri[a2]);
-      ret.push_back(tri[b2]);
-      ret.push_back(tri[c2]);
+      out.push_back(tri[a2]);
+      out.push_back(tri[b2]);
+      out.push_back(tri[c2]);
     }
 
     while(numVerts > 0)
@@ -132,9 +130,9 @@ static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVe
       vertexIndex++;
       numVerts--;
 
-      ret.push_back(tri[a]);
-      ret.push_back(tri[b]);
-      ret.push_back(tri[c]);
+      out.push_back(tri[a]);
+      out.push_back(tri[b]);
+      out.push_back(tri[c]);
 
       if(numVerts > 0)
       {
@@ -142,9 +140,9 @@ static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVe
         vertexIndex++;
         numVerts--;
 
-        ret.push_back(tri[a2]);
-        ret.push_back(tri[b2]);
-        ret.push_back(tri[c2]);
+        out.push_back(tri[a2]);
+        out.push_back(tri[b2]);
+        out.push_back(tri[c2]);
       }
     }
   }
@@ -152,15 +150,12 @@ static std::vector<VertexCacheEntry> ShadeVerts(const GPUState &state, int numVe
   {
     printf("Unsupported primitive topology!\n");
   }
-
-  return ret;
 }
 
-static std::vector<int4> ToWindow(uint32_t w, uint32_t h, const std::vector<VertexCacheEntry> &pos)
+static void ToWindow(uint32_t w, uint32_t h, const std::vector<VertexCacheEntry> &pos,
+                     std::vector<int4> &out)
 {
   MICROPROFILE_SCOPE(rasterizer_ToWindow);
-
-  std::vector<int4> ret;
 
   for(const VertexCacheEntry &v : pos)
   {
@@ -169,10 +164,8 @@ static std::vector<int4> ToWindow(uint32_t w, uint32_t h, const std::vector<Vert
     win.x = int((v.position.x / v.position.w + 1.0f) * 0.5f * w);
     win.y = int((v.position.y * -1.0f / v.position.w + 1.0f) * 0.5f * h);
 
-    ret.push_back(win);
+    out.push_back(win);
   }
-
-  return ret;
 }
 
 static void MinMax(const int4 *coords, int4 &minwin, int4 &maxwin)
@@ -253,9 +246,13 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
   const uint32_t h = state.target->extent.height;
   const uint32_t bpp = state.target->bytesPerPixel;
 
-  std::vector<VertexCacheEntry> shadedVerts = ShadeVerts(state, numVerts, first, indexed);
+  static std::vector<VertexCacheEntry> shadedVerts;
+  shadedVerts.clear();
+  ShadeVerts(state, numVerts, first, indexed, shadedVerts);
 
-  std::vector<int4> winCoords = ToWindow(w, h, shadedVerts);
+  static std::vector<int4> winCoords;
+  winCoords.clear();
+  ToWindow(w, h, shadedVerts, winCoords);
 
   int written = 0, tested = 0, tris_in = 0, tris_out = 0;
 

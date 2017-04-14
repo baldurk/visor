@@ -85,6 +85,7 @@ static void normalize3(float4 &a)
 MICROPROFILE_DEFINE(vkcube_vs, "premade_shaders", "vkcube_vs", MP_BLACK);
 MICROPROFILE_DEFINE(sascha_textoverlay_vs, "premade_shaders", "sascha_textoverlay_vs", MP_BLACK);
 MICROPROFILE_DEFINE(sascha_texture_vs, "premade_shaders", "sascha_texture_vs", MP_BLACK);
+
 void vkcube_vs(const GPUState &state, uint32_t vertexIndex, VertexCacheEntry &out)
 {
   MICROPROFILE_SCOPE(vkcube_vs);
@@ -114,8 +115,6 @@ void vkcube_vs(const GPUState &state, uint32_t vertexIndex, VertexCacheEntry &ou
 void vkcube_fs(const GPUState &state, float pixdepth, const float4 &bary,
                const VertexCacheEntry tri[3], float4 &out)
 {
-  MICROPROFILE_SCOPEI("rasterizer", "vkcube_fs", MP_WHITE);
-
   float u = dot(bary, float4(tri[0].interps[0].x, tri[1].interps[0].x, tri[2].interps[0].x, 0.0f));
   float v = dot(bary, float4(tri[0].interps[0].y, tri[1].interps[0].y, tri[2].interps[0].y, 0.0f));
 

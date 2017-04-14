@@ -228,11 +228,18 @@ void ClearTarget(VkImage target, const VkClearColorValue &col)
   eval[0] = byte(col.float32[2] * 255.0f);
   eval[3] = byte(col.float32[3] * 255.0f);
 
-  for(uint32_t x = 0; x < w; x++)
+  if(bpp == 1)
+  {
+    memset(bits, eval[2], w * h);
+  }
+  else if(bpp == 4)
   {
     for(uint32_t y = 0; y < h; y++)
     {
-      memcpy(&bits[(y * w + x) * bpp], eval, bpp);
+      for(uint32_t x = 0; x < w; x++)
+      {
+        memcpy(&bits[(y * w + x) * bpp], eval, 4);
+      }
     }
   }
 }

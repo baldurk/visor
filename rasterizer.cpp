@@ -265,20 +265,6 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
   {
     tris_in++;
 
-    int4 minwin, maxwin;
-    MinMax(tri, minwin, maxwin);
-
-    float4 invw(1.0f / vsout[0].position.w, 1.0f / vsout[1].position.w, 1.0f / vsout[2].position.w,
-                0.0f);
-    float4 depth(vsout[0].position.z * invw.x, vsout[1].position.z / invw.y,
-                 vsout[2].position.z / invw.z, 0.0f);
-
-    // clamp to screen, assume guard band is enough!
-    minwin.x = std::max(0, minwin.x);
-    minwin.y = std::max(0, minwin.y);
-    maxwin.x = std::min(int(w - 1), maxwin.x);
-    maxwin.y = std::min(int(h - 1), maxwin.y);
-
     int a = area(tri[0], tri[1], tri[2]);
     // skip zero-area triangles
     if(a == 0)
@@ -301,7 +287,19 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
 
     tris_out++;
 
-    MICROPROFILE_SCOPEI("rasterizer", "TriLoop", MP_BLUE);
+    int4 minwin, maxwin;
+    MinMax(tri, minwin, maxwin);
+
+    float4 invw(1.0f / vsout[0].position.w, 1.0f / vsout[1].position.w, 1.0f / vsout[2].position.w,
+                0.0f);
+    float4 depth(vsout[0].position.z * invw.x, vsout[1].position.z * invw.y,
+                 vsout[2].position.z * invw.z, 0.0f);
+
+    // clamp to screen, assume guard band is enough!
+    minwin.x = std::max(0, minwin.x);
+    minwin.y = std::max(0, minwin.y);
+    maxwin.x = std::min(int(w - 1), maxwin.x);
+    maxwin.y = std::min(int(h - 1), maxwin.y);
 
     for(int y = minwin.y; y < maxwin.y; y++)
     {

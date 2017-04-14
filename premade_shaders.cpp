@@ -74,6 +74,15 @@ static float dot(const float4 &a, const float4 &b)
   return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 }
 
+static float pow16(const float x)
+{
+  float x2 = x * x;
+  float x4 = x2 * x2;
+  float x8 = x4 * x4;
+
+  return x8 * x8;
+}
+
 static void normalize3(float4 &a)
 {
   float len = sqrtf(a.x * a.x + a.y * a.y + a.z * a.z);
@@ -403,7 +412,7 @@ void sascha_texture_fs(const GPUState &state, float pixdepth, const float4 &bary
   float diffuse = std::max(dot(N, L), 0.0f);
 
   // float specular = pow(max(dot(R, V), 0.0), 16.0) * color.a;
-  float specular = powf(std::max(dot(R, V), 0.0f), 16.0f) * color.w;
+  float specular = pow16(std::max(dot(R, V), 0.0f)) * color.w;
 
   // outFragColor = vec4(diffuse * color.rgb + specular, 1.0);
   out.x = std::min(1.0f, diffuse * color.x + specular);

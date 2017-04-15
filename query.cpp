@@ -96,7 +96,7 @@ VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceProperties(VkPhysicalDevice physic
   pProperties->vendorID = 0x10003;
   pProperties->deviceID = 0x01234;
   pProperties->deviceType = VK_PHYSICAL_DEVICE_TYPE_CPU;
-  char devName[] = "Visor Software Renderer (https://github.com/baldurk/visor)";
+  char devName[] = "Visor Software Renderer";
   memcpy(pProperties->deviceName, devName, sizeof(devName));
   for(int i = 0; i < VK_UUID_SIZE; i++)
     pProperties->pipelineCacheUUID[i] = uint8_t(i);

@@ -160,8 +160,7 @@ void VkCommandBuffer_T::execute() const
                                                       data.region.imageSubresource.baseArrayLayer);
 
         memcpy(data.dstImage->pixels + offs, data.srcBuffer->bytes + data.region.bufferOffset,
-               data.dstImage->extent.width * data.dstImage->extent.height *
-                   data.dstImage->bytesPerPixel);
+               w * h * bpp);
 
         break;
       }

@@ -266,6 +266,8 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
   const uint32_t h = state.col[0]->extent.height;
   const uint32_t bpp = state.col[0]->bytesPerPixel;
 
+  float *depthbits = state.depth ? (float *)state.depth->pixels : NULL;
+
   static std::vector<VertexCacheEntry> shadedVerts;
   shadedVerts.clear();
   ShadeVerts(state, numVerts, first, indexed, shadedVerts);
@@ -274,7 +276,8 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
   winCoords.clear();
   ToWindow(w, h, shadedVerts, winCoords);
 
-  int written = 0, tested = 0, tris_in = 0, tris_out = 0;
+  int pixels_written = 0, pixels_tested = 0, depth_passed = 0;
+  int tris_in = 0, tris_out = 0;
 
   const int4 *curTriangle = winCoords.data();
   const VertexCacheEntry *curVSOut = shadedVerts.data();
@@ -349,33 +352,62 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
           // calculate pixel depth
           float pixdepth = n.x * depth.x + n.y * depth.y + n.z * depth.z;
 
-          // perspective correct with W
-          n.x *= invw.x;
-          n.y *= invw.y;
-          n.z *= invw.z;
+          bool passed = true;
 
-          float invlen = 1.0f / (n.x + n.y + n.z);
-          n.x *= invlen;
-          n.y *= invlen;
-          n.z *= invlen;
+          if(state.pipeline->depthCompareOp != VK_COMPARE_OP_ALWAYS && depthbits)
+          {
+            float curdepth = depthbits[y * w + x];
 
-          float4 pix;
-          state.pipeline->fs(state, pixdepth, n, vsout, pix);
+            switch(state.pipeline->depthCompareOp)
+            {
+              case VK_COMPARE_OP_NEVER: passed = false; break;
+              case VK_COMPARE_OP_LESS: passed = pixdepth < curdepth; break;
+              case VK_COMPARE_OP_EQUAL: passed = pixdepth == curdepth; break;
+              case VK_COMPARE_OP_LESS_OR_EQUAL: passed = pixdepth <= curdepth; break;
+              case VK_COMPARE_OP_GREATER: passed = pixdepth > curdepth; break;
+              case VK_COMPARE_OP_NOT_EQUAL: passed = pixdepth != curdepth; break;
+              case VK_COMPARE_OP_GREATER_OR_EQUAL: passed = pixdepth >= curdepth; break;
+            }
+          }
 
-          bits[(y * w + x) * bpp + 2] = byte(pix.x * 255.0f);
-          bits[(y * w + x) * bpp + 1] = byte(pix.y * 255.0f);
-          bits[(y * w + x) * bpp + 0] = byte(pix.z * 255.0f);
+          if(passed)
+          {
+            // perspective correct with W
+            n.x *= invw.x;
+            n.y *= invw.y;
+            n.z *= invw.z;
 
-          written++;
+            float invlen = 1.0f / (n.x + n.y + n.z);
+            n.x *= invlen;
+            n.y *= invlen;
+            n.z *= invlen;
+
+            float4 pix;
+            state.pipeline->fs(state, pixdepth, n, vsout, pix);
+
+            bits[(y * w + x) * bpp + 2] = byte(pix.x * 255.0f);
+            bits[(y * w + x) * bpp + 1] = byte(pix.y * 255.0f);
+            bits[(y * w + x) * bpp + 0] = byte(pix.z * 255.0f);
+
+            depth_passed++;
+
+            if(state.pipeline->depthWriteEnable && depthbits)
+            {
+              depthbits[y * w + x] = pixdepth;
+            }
+          }
+
+          pixels_written++;
         }
 
-        tested++;
+        pixels_tested++;
       }
     }
   }
 
-  MICROPROFILE_COUNTER_ADD("rasterizer/pixels/tested", tested);
-  MICROPROFILE_COUNTER_ADD("rasterizer/pixels/written", written);
+  MICROPROFILE_COUNTER_ADD("rasterizer/pixels/tested", pixels_tested);
+  MICROPROFILE_COUNTER_ADD("rasterizer/pixels/written", pixels_written);
+  MICROPROFILE_COUNTER_ADD("rasterizer/depth/passed", depth_passed);
   MICROPROFILE_COUNTER_ADD("rasterizer/triangles/in", tris_in);
   MICROPROFILE_COUNTER_ADD("rasterizer/triangles/out", tris_out);
   MICROPROFILE_COUNTER_ADD("rasterizer/draws/in", 1);

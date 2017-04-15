@@ -117,6 +117,8 @@ struct VkPipeline_T
   VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
   VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   VkCullModeFlags cullMode = VK_CULL_MODE_FLAG_BITS_MAX_ENUM;
+  VkCompareOp depthCompareOp = VK_COMPARE_OP_ALWAYS;
+  bool depthWriteEnable = false;
   VertexShader vs = NULL;
   FragmentShader fs = NULL;
 };

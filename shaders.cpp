@@ -40,6 +40,12 @@ vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32
     ret->frontFace = pCreateInfos[i].pRasterizationState->frontFace;
     ret->cullMode = pCreateInfos[i].pRasterizationState->cullMode;
 
+    if(pCreateInfos[i].pDepthStencilState)
+    {
+      ret->depthCompareOp = pCreateInfos[i].pDepthStencilState->depthCompareOp;
+      ret->depthWriteEnable = pCreateInfos[i].pDepthStencilState->depthWriteEnable == VK_TRUE;
+    }
+
     for(uint32_t s = 0; s < pCreateInfos[i].stageCount; s++)
     {
       if(pCreateInfos[i].pStages[s].stage == VK_SHADER_STAGE_VERTEX_BIT)

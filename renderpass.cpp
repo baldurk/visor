@@ -33,8 +33,15 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateRenderPass(VkDevice device,
     sub.colAttachments.resize(pCreateInfo->pSubpasses[i].colorAttachmentCount);
     for(uint32_t a = 0; a < pCreateInfo->pSubpasses[i].colorAttachmentCount; a++)
     {
-      sub.colAttachments[a].idx = pCreateInfo->pSubpasses[i].pColorAttachments[a].attachment;
+      sub.colAttachments[a].idx = (int32_t)pCreateInfo->pSubpasses[i].pColorAttachments[a].attachment;
       sub.colAttachments[a].clear = (pCreateInfo->pAttachments[sub.colAttachments[a].idx].loadOp ==
+                                     VK_ATTACHMENT_LOAD_OP_CLEAR);
+
+      sub.depthAttachment.idx = -1;
+      if(pCreateInfo->pSubpasses[i].pDepthStencilAttachment)
+        sub.depthAttachment.idx = pCreateInfo->pSubpasses[i].pDepthStencilAttachment->attachment;
+      if(sub.depthAttachment.idx >= 0)
+        sub.depthAttachment.clear = (pCreateInfo->pAttachments[sub.depthAttachment.idx].loadOp ==
                                      VK_ATTACHMENT_LOAD_OP_CLEAR);
     }
     ret->subpasses.emplace_back(sub);

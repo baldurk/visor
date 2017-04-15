@@ -148,13 +148,14 @@ struct VkRenderPass_T
 {
   struct Attachment
   {
-    uint32_t idx;
+    int32_t idx;
     bool clear;
   };
 
   struct Subpass
   {
     std::vector<Attachment> colAttachments;
+    Attachment depthAttachment;
   };
 
   std::vector<Subpass> subpasses;

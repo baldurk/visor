@@ -15,6 +15,7 @@ struct GPUState
   } vbs[4];
   VkViewport view;
   VkImage col[8];
+  VkImage depth;
   VkPipeline pipeline;
   VkDescriptorSet set;
 };

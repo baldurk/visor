@@ -37,16 +37,27 @@ void VkCommandBuffer_T::execute() const
         const cmd::BeginRenderPass &data = pull<cmd::BeginRenderPass>(&cur);
 
         VkRenderPass_T::Subpass &subpass = data.renderPass->subpasses[0];
-        VkRenderPass_T::Attachment &att = subpass.colAttachments[0];
+        VkRenderPass_T::Attachment &col0 = subpass.colAttachments[0];
 
-        state.col[0] = data.framebuffer->attachments[att.idx]->image;
+        state.col[0] = data.framebuffer->attachments[col0.idx]->image;
 
         int clearIdx = 0;
 
-        if(att.clear)
+        if(col0.clear)
         {
           ClearTarget(state.col[0], data.clearval[clearIdx++].color);
         }
+
+        VkRenderPass_T::Attachment &depth = subpass.depthAttachment;
+
+        if(depth.idx >= 0)
+        {
+          state.depth = data.framebuffer->attachments[depth.idx]->image;
+
+          if(depth.clear)
+          {
+            ClearTarget(state.depth, data.clearval[clearIdx++].depthStencil);
+          }
         }
 
         break;

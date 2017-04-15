@@ -153,33 +153,11 @@ void VkCommandBuffer_T::execute() const
         // only support copying the whole mip
         assert(w == data.region.imageExtent.width && h == data.region.imageExtent.height);
 
-        VkDeviceSize offs = 0;
-        for(uint32_t m = 0; m < mip; m++)
-        {
-          const uint32_t mw = std::max(1U, data.dstImage->extent.width >> m);
-          const uint32_t mh = std::max(1U, data.dstImage->extent.height >> m);
-          offs += mw * mh * bpp;
-        }
-
-        if(data.region.imageSubresource.baseArrayLayer > 0)
-        {
-          uint32_t mw = data.dstImage->extent.width;
-          uint32_t mh = data.dstImage->extent.height;
-
-          VkDeviceSize sliceSize = 0;
-
-          do
-          {
-            sliceSize += mw * mh * bpp;
-            mw = std::max(1U, mw >> 1);
-            mh = std::max(1U, mh >> 1);
-          } while(mw > 1 || mh > 1);
-
-          offs += sliceSize * data.region.imageSubresource.baseArrayLayer;
-        }
-
         // only support copying one layer at a time
         assert(data.region.imageSubresource.layerCount == 1);
+
+        VkDeviceSize offs = CalcSubresourceByteOffset(data.dstImage, mip,
+                                                      data.region.imageSubresource.baseArrayLayer);
 
         memcpy(data.dstImage->pixels, data.srcBuffer->bytes + data.region.bufferOffset,
                data.dstImage->extent.width * data.dstImage->extent.height *

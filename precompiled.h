@@ -203,3 +203,5 @@ inline uint32_t hashSPV(const uint32_t *spv, size_t numWords)
 
   return hash;
 }
+
+VkDeviceSize CalcSubresourceByteOffset(VkImage img, uint32_t mip, uint32_t layer);

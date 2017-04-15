@@ -173,14 +173,9 @@ static void MinMax(const int4 *coords, int4 &minwin, int4 &maxwin)
   }
 }
 
-static int area(const int4 &a, const int4 &b, const int4 &c)
+static int double_triarea(const int4 &a, const int4 &b, const int4 &c)
 {
   return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-}
-
-static int4 cross(int4 a, int4 b)
-{
-  return int4((a.y * b.z) - (b.y * a.z), (a.z * b.x) - (b.z * a.x), (a.x * b.y) - (b.x * a.y), 1);
 }
 
 static float clamp01(float in)
@@ -188,8 +183,16 @@ static float clamp01(float in)
   return in > 1.0f ? 1.0f : (in < 0.0f ? 0.0f : in);
 }
 
-static int4 barycentric(const int4 *verts, const int4 &pixel)
+static inline int4 barycentric(const int ABx, const int ABy, const int ACx, const int ACy,
+                               const int area2, const int4 *verts, const int4 &pixel)
 {
+  /*
+
+  static int4 cross(int4 a, int4 b)
+  {
+    return int4((a.y * b.z) - (b.y * a.z), (a.z * b.x) - (b.z * a.x), (a.x * b.y) - (b.x * a.y), 1);
+  }
+
   int4 u = cross(int4(verts[1].x - verts[0].x, verts[2].x - verts[0].x, verts[0].x - pixel.x, 1),
                  int4(verts[1].y - verts[0].y, verts[2].y - verts[0].y, verts[0].y - pixel.y, 1));
 
@@ -197,6 +200,16 @@ static int4 barycentric(const int4 *verts, const int4 &pixel)
     return int4(-1, -1, -1, -1);
 
   return int4(u.z - (u.x + u.y), u.x, u.y, u.z);
+
+  */
+
+  const int PAx = verts[0].x - pixel.x;
+  const int PAy = verts[0].y - pixel.y;
+
+  const int ux = (ACx * PAy) - (ACy * PAx);
+  const int uy = (PAx * ABy) - (PAy * ABx);
+
+  return int4(area2 - (ux + uy), ux, uy, 0);
 }
 
 void ClearTarget(VkImage target, const VkClearDepthStencilValue &col)
@@ -287,24 +300,27 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
 
     tris_in++;
 
-    int a = area(tri[0], tri[1], tri[2]);
+    int area2 = double_triarea(tri[0], tri[1], tri[2]);
+
     // skip zero-area triangles
-    if(a == 0)
+    if(area2 == 0)
       continue;
+
+    int area2_flipped = area2;
 
     int barymul = 1;
     // if clockwise winding is front-facing, invert barycentrics and area before backface test
     if(state.pipeline->frontFace == VK_FRONT_FACE_CLOCKWISE)
     {
       barymul *= -1;
-      a *= -1;
+      area2_flipped *= -1;
     }
 
     // cull front-faces if desired
-    if(a > 0 && (state.pipeline->cullMode & VK_CULL_MODE_FRONT_BIT))
+    if(area2_flipped > 0 && (state.pipeline->cullMode & VK_CULL_MODE_FRONT_BIT))
       continue;
 
-    if(a < 0)
+    if(area2_flipped < 0)
     {
       // cull back-faces if desired
       if(state.pipeline->cullMode & VK_CULL_MODE_BACK_BIT)
@@ -312,7 +328,10 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
 
       // otherwise flip barycentrics again to ensure they'll be positive
       barymul *= -1;
+      area2_flipped *= -1;
     }
+
+    float invarea = 1.0f / float(area2_flipped);
 
     tris_out++;
 
@@ -330,24 +349,28 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
     maxwin.x = std::min(int(w - 1), maxwin.x);
     maxwin.y = std::min(int(h - 1), maxwin.y);
 
+    const int ABx = tri[1].x - tri[0].x;
+    const int ABy = tri[1].y - tri[0].y;
+    const int ACx = tri[2].x - tri[0].x;
+    const int ACy = tri[2].y - tri[0].y;
+
     for(int y = minwin.y; y < maxwin.y; y++)
     {
       for(int x = minwin.x; x < maxwin.x; x++)
       {
-        int4 b = barycentric(tri, int4(x, y, 0, 0));
+        int4 b = barycentric(ABx, ABy, ACx, ACy, area2, tri, int4(x, y, 0, 0));
 
         b.x *= barymul;
         b.y *= barymul;
         b.z *= barymul;
-        b.w *= barymul;
 
         if(b.x >= 0 && b.y >= 0 && b.z >= 0)
         {
           // normalise the barycentrics
-          float4 n = float4(float(b.x), float(b.y), float(b.z), float(b.w));
-          n.x /= n.w;
-          n.y /= n.w;
-          n.z /= n.w;
+          float4 n = float4(float(b.x), float(b.y), float(b.z), 0.0f);
+          n.x *= invarea;
+          n.y *= invarea;
+          n.z *= invarea;
 
           // calculate pixel depth
           float pixdepth = n.x * depth.x + n.y * depth.y + n.z * depth.z;

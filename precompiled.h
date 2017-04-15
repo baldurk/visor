@@ -92,6 +92,7 @@ struct VkImage_T
   VkExtent3D extent = {0, 0, 0};
   VkImageType imageType = VK_IMAGE_TYPE_MAX_ENUM;
   uint32_t arrayLayers = 1;
+  uint32_t mipLevels = 1;
   uint32_t bytesPerPixel = 4;
   byte *pixels = NULL;
 };

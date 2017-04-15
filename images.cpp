@@ -26,6 +26,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateImage(VkDevice device, const VkImageCreat
   ret->bytesPerPixel = 4;
   ret->imageType = pCreateInfo->imageType;
   ret->arrayLayers = pCreateInfo->arrayLayers;
+  ret->mipLevels = pCreateInfo->mipLevels;
   if(pCreateInfo->format == VK_FORMAT_R8_UNORM)
     ret->bytesPerPixel = 1;
   *pImage = ret;
@@ -55,6 +56,10 @@ VKAPI_ATTR void VKAPI_CALL vkGetImageMemoryRequirements(VkDevice device, VkImage
       image->extent.width * image->extent.height * image->arrayLayers * image->bytesPerPixel;
   if(image->imageType == VK_IMAGE_TYPE_3D)
     pMemoryRequirements->size *= image->extent.depth;
+
+  // allocate a bunch more space for mips
+  if(image->mipLevels > 1)
+    pMemoryRequirements->size *= 2;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkGetImageSubresourceLayout(VkDevice device, VkImage image,

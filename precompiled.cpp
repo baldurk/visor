@@ -22,12 +22,12 @@ VkDeviceSize CalcSubresourceByteOffset(VkImage img, uint32_t mip, uint32_t layer
 
     VkDeviceSize sliceSize = 0;
 
-    do
+    for(uint32_t m = 0; m < img->mipLevels; m++)
     {
       sliceSize += mw * mh * bpp;
       mw = std::max(1U, mw >> 1);
       mh = std::max(1U, mh >> 1);
-    } while(mw > 1 || mh > 1);
+    }
 
     offs += sliceSize * layer;
   }

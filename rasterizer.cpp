@@ -29,10 +29,6 @@ static void ShadeVerts(const GPUState &state, int numVerts, uint32_t first, bool
 
   VertexCacheEntry tri[4];
 
-  int a = 0, b = 1, c = 2;
-  if(state.pipeline->frontFace == VK_FRONT_FACE_CLOCKWISE)
-    std::swap(a, c);
-
   if(state.pipeline->topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
   {
     VertexCacheEntry vert;
@@ -50,9 +46,9 @@ static void ShadeVerts(const GPUState &state, int numVerts, uint32_t first, bool
       state.pipeline->vs(state, GetIndex(state, vertexIndex, indexed), tri[2]);
       vertexIndex++;
 
-      out.push_back(tri[a]);
-      out.push_back(tri[b]);
-      out.push_back(tri[c]);
+      out.push_back(tri[0]);
+      out.push_back(tri[1]);
+      out.push_back(tri[2]);
     }
   }
   else if(state.pipeline->topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP)
@@ -79,14 +75,6 @@ static void ShadeVerts(const GPUState &state, int numVerts, uint32_t first, bool
     // S+0, S+1, S+2
     // S+2, S+1, S+3
 
-    int a = 0, b = 1, c = 2;
-    int a2 = 2, b2 = 1, c2 = 3;
-    if(state.pipeline->frontFace == VK_FRONT_FACE_CLOCKWISE)
-    {
-      std::swap(a, c);
-      std::swap(a2, c2);
-    }
-
     // do the first one separately when we have to emit a whole triangle
     uint32_t vertexIndex = first;
 
@@ -97,9 +85,9 @@ static void ShadeVerts(const GPUState &state, int numVerts, uint32_t first, bool
     state.pipeline->vs(state, GetIndex(state, vertexIndex, indexed), tri[2]);
     vertexIndex++;
 
-    out.push_back(tri[a]);
-    out.push_back(tri[b]);
-    out.push_back(tri[c]);
+    out.push_back(tri[0]);
+    out.push_back(tri[1]);
+    out.push_back(tri[2]);
 
     numVerts -= 3;
 
@@ -109,9 +97,9 @@ static void ShadeVerts(const GPUState &state, int numVerts, uint32_t first, bool
       vertexIndex++;
       numVerts--;
 
-      out.push_back(tri[a2]);
-      out.push_back(tri[b2]);
-      out.push_back(tri[c2]);
+      out.push_back(tri[2]);
+      out.push_back(tri[1]);
+      out.push_back(tri[3]);
     }
 
     while(numVerts > 0)
@@ -130,9 +118,9 @@ static void ShadeVerts(const GPUState &state, int numVerts, uint32_t first, bool
       vertexIndex++;
       numVerts--;
 
-      out.push_back(tri[a]);
-      out.push_back(tri[b]);
-      out.push_back(tri[c]);
+      out.push_back(tri[0]);
+      out.push_back(tri[1]);
+      out.push_back(tri[2]);
 
       if(numVerts > 0)
       {
@@ -140,9 +128,9 @@ static void ShadeVerts(const GPUState &state, int numVerts, uint32_t first, bool
         vertexIndex++;
         numVerts--;
 
-        out.push_back(tri[a2]);
-        out.push_back(tri[b2]);
-        out.push_back(tri[c2]);
+        out.push_back(tri[2]);
+        out.push_back(tri[1]);
+        out.push_back(tri[3]);
       }
     }
   }
@@ -299,19 +287,26 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
     if(a == 0)
       continue;
 
+    int barymul = 1;
+    // if clockwise winding is front-facing, invert barycentrics and area before backface test
+    if(state.pipeline->frontFace == VK_FRONT_FACE_CLOCKWISE)
+    {
+      barymul *= -1;
+      a *= -1;
+    }
+
     // cull front-faces if desired
     if(a > 0 && (state.pipeline->cullMode & VK_CULL_MODE_FRONT_BIT))
       continue;
 
-    int barymul = 1;
     if(a < 0)
     {
       // cull back-faces if desired
       if(state.pipeline->cullMode & VK_CULL_MODE_BACK_BIT)
         continue;
 
-      // otherwise flip barycentrics
-      barymul = -1;
+      // otherwise flip barycentrics again to ensure they'll be positive
+      barymul *= -1;
     }
 
     tris_out++;

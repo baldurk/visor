@@ -74,21 +74,44 @@ static float dot(const float4 &a, const float4 &b)
   return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 }
 
-static float pow16(const float x)
+static float clamp(const float f, const float lower, const float upper)
 {
-  float x2 = x * x;
-  float x4 = x2 * x2;
-  float x8 = x4 * x4;
+  if(f < lower)
+    return lower;
+  else if(f > upper)
+    return upper;
+  else
+    return f;
+}
 
-  return x8 * x8;
+template <int p>
+static float powint(const float x)
+{
+  float res = 1.0f;
+  for(int i = 0; i < p; i++)
+    res *= x;
+
+  return res;
+}
+
+float rsqrt(float number)
+{
+  float ret;
+  _mm_store_ss(&ret, _mm_rsqrt_ss(_mm_load_ss(&number)));
+  return ret;
+}
+
+static void normalize3(float *a)
+{
+  float invlen = rsqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
+  a[0] *= invlen;
+  a[1] *= invlen;
+  a[2] *= invlen;
 }
 
 static void normalize3(float4 &a)
 {
-  float len = sqrtf(a.x * a.x + a.y * a.y + a.z * a.z);
-  a.x /= len;
-  a.y /= len;
-  a.z /= len;
+  return normalize3(a.v);
 }
 
 MICROPROFILE_DEFINE(vkcube_vs, "premade_shaders", "vkcube_vs", MP_BLACK);
@@ -412,7 +435,7 @@ void sascha_texture_fs(const GPUState &state, float pixdepth, const float4 &bary
   float diffuse = std::max(dot(N, L), 0.0f);
 
   // float specular = pow(max(dot(R, V), 0.0), 16.0) * color.a;
-  float specular = pow16(std::max(dot(R, V), 0.0f)) * color.w;
+  float specular = powint<16>(std::max(dot(R, V), 0.0f)) * color.w;
 
   // outFragColor = vec4(diffuse * color.rgb + specular, 1.0);
   out.x = std::min(1.0f, diffuse * color.x + specular);

@@ -22,6 +22,9 @@
     <ClCompile Include="shaders.cpp" />
     <ClCompile Include="premade_shaders.cpp" />
     <ClCompile Include="texture_sampling.cpp" />
+    <ClCompile Include="3rdparty\decompress.c">
+      <Filter>3rdparty\decompress</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="precompiled.h" />
@@ -43,6 +46,7 @@
     <ClInclude Include="commands.h" />
     <ClInclude Include="gpu.h" />
     <ClInclude Include="stats.h" />
+    <ClInclude Include="3rdparty\decompress.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="visor.json" />
@@ -56,6 +60,9 @@
     </Filter>
     <Filter Include="3rdparty\microprofile">
       <UniqueIdentifier>{901a93a7-86c6-466a-a4c6-8b33ca7bd5e4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="3rdparty\decompress">
+      <UniqueIdentifier>{8d761509-3638-475e-9f65-f6e3cec1b493}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

@@ -158,6 +158,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="3rdparty\decompress.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="3rdparty\microprofile.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -181,6 +184,7 @@
     <ClCompile Include="icd_interface.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="3rdparty\decompress.h" />
     <ClInclude Include="3rdparty\microprofile.h" />
     <ClInclude Include="3rdparty\microprofile_html.h" />
     <ClInclude Include="3rdparty\vk_icd.h" />

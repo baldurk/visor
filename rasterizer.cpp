@@ -261,10 +261,10 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
 {
   MICROPROFILE_SCOPE(rasterizer_DrawTriangles);
 
-  byte *bits = state.target->pixels;
-  const uint32_t w = state.target->extent.width;
-  const uint32_t h = state.target->extent.height;
-  const uint32_t bpp = state.target->bytesPerPixel;
+  byte *bits = state.col[0]->pixels;
+  const uint32_t w = state.col[0]->extent.width;
+  const uint32_t h = state.col[0]->extent.height;
+  const uint32_t bpp = state.col[0]->bytesPerPixel;
 
   static std::vector<VertexCacheEntry> shadedVerts;
   shadedVerts.clear();

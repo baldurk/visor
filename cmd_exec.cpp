@@ -39,13 +39,14 @@ void VkCommandBuffer_T::execute() const
         VkRenderPass_T::Subpass &subpass = data.renderPass->subpasses[0];
         VkRenderPass_T::Attachment &att = subpass.colAttachments[0];
 
-        uint32_t col = att.idx;
+        state.col[0] = data.framebuffer->attachments[att.idx]->image;
 
-        state.target = data.framebuffer->attachments[col]->image;
+        int clearIdx = 0;
 
         if(att.clear)
         {
-          ClearTarget(state.target, data.clearval.color);
+          ClearTarget(state.col[0], data.clearval[clearIdx++].color);
+        }
         }
 
         break;
@@ -54,7 +55,7 @@ void VkCommandBuffer_T::execute() const
       {
         const cmd::EndRenderPass &data = pull<cmd::EndRenderPass>(&cur);
 
-        state.target = VK_NULL_HANDLE;
+        state.col[0] = VK_NULL_HANDLE;
 
         break;
       }

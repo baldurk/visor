@@ -32,10 +32,8 @@ VKAPI_ATTR void VKAPI_CALL vkCmdBeginRenderPass(VkCommandBuffer commandBuffer,
   cmd->renderPass = pRenderPassBegin->renderPass;
   cmd->framebuffer = pRenderPassBegin->framebuffer;
 
-  if(pRenderPassBegin->clearValueCount > 0)
-    cmd->clearval = pRenderPassBegin->pClearValues[0];
-  else
-    cmd->clearval = {};
+  memcpy(cmd->clearval, pRenderPassBegin->pClearValues,
+         sizeof(VkClearValue) * std::min(pRenderPassBegin->clearValueCount, 8U));
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdEndRenderPass(VkCommandBuffer commandBuffer)

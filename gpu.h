@@ -14,7 +14,7 @@ struct GPUState
     VkDeviceSize offset;
   } vbs[4];
   VkViewport view;
-  VkImage target;
+  VkImage col[8];
   VkPipeline pipeline;
   VkDescriptorSet set;
 };

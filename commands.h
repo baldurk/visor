@@ -12,7 +12,7 @@ struct BeginRenderPass
   static const Command CommandID = Command::BeginRenderPass;
   VkRenderPass renderPass;
   VkFramebuffer framebuffer;
-  VkClearValue clearval;
+  VkClearValue clearval[8];
 };
 
 struct EndRenderPass

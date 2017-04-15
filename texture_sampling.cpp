@@ -1,4 +1,5 @@
 #include "precompiled.h"
+#include "3rdparty/decompress.h"
 #include "gpu.h"
 
 struct TextureCacheEntry
@@ -87,17 +88,43 @@ float4 &CacheCoord(VkImage tex, VkDeviceSize byteOffs, int x, int y)
 
   byte *base = tex->pixels + byteOffs;
 
-  const uint32_t bpp = tex->bytesPerPixel;
-
-  for(int row = 0; row < 4; row++)
+  if(tex->format == VK_FORMAT_BC2_UNORM_BLOCK)
   {
-    byte *rowbase = base + ((TLy + row) * tex->extent.width + TLx) * bpp;
+    byte decoded[16 * 4];
 
-    for(int col = 0; col < 4; col++)
+    const int blockX = TLx >> 2;
+    const int blockY = TLy >> 2;
+    const uint32_t widthInBlocks = tex->extent.width >> 2;
+
+    byte *blockbase = base + (blockY * widthInBlocks + blockX) * 16;
+
+    DecompressBlockBC2(0, 0, 4 * sizeof(uint32_t), blockbase, decoded);
+
+    for(int row = 0; row < 4; row++)
     {
-      tcache->pixels[row][col] =
-          float4(float(rowbase[col * bpp + 0]) / 255.0f, float(rowbase[col * bpp + 1]) / 255.0f,
-                 float(rowbase[col * bpp + 2]) / 255.0f, float(rowbase[col * bpp + 3]) / 255.0f);
+      for(int col = 0; col < 4; col++)
+      {
+        tcache->pixels[row][col] = float4(float(decoded[(row * 4 + col) * 4 + 0]) / 255.0f,
+                                          float(decoded[(row * 4 + col) * 4 + 1]) / 255.0f,
+                                          float(decoded[(row * 4 + col) * 4 + 2]) / 255.0f,
+                                          float(decoded[(row * 4 + col) * 4 + 3]) / 255.0f);
+      }
+    }
+  }
+  else
+  {
+    const uint32_t bpp = tex->bytesPerPixel;
+
+    for(int row = 0; row < 4; row++)
+    {
+      byte *rowbase = base + ((TLy + row) * tex->extent.width + TLx) * bpp;
+
+      for(int col = 0; col < 4; col++)
+      {
+        tcache->pixels[row][col] =
+            float4(float(rowbase[col * bpp + 0]) / 255.0f, float(rowbase[col * bpp + 1]) / 255.0f,
+                   float(rowbase[col * bpp + 2]) / 255.0f, float(rowbase[col * bpp + 3]) / 255.0f);
+      }
     }
   }
 

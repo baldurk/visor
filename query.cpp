@@ -83,7 +83,7 @@ VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceFeatures(VkPhysicalDevice physical
   memset(pFeatures, 0, sizeof(VkPhysicalDeviceFeatures));
   pFeatures->fullDrawIndexUint32 = VK_TRUE;
   pFeatures->fillModeNonSolid = VK_TRUE;
-  // CTSTODO - we would need to support one of the compressed texture formats here
+  pFeatures->textureCompressionBC = VK_TRUE;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,

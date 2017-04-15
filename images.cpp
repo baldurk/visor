@@ -25,9 +25,10 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateImage(VkDevice device, const VkImageCreat
   ret->extent = pCreateInfo->extent;
   ret->bytesPerPixel = 4;
   ret->imageType = pCreateInfo->imageType;
+  ret->format = pCreateInfo->format;
   ret->arrayLayers = pCreateInfo->arrayLayers;
   ret->mipLevels = pCreateInfo->mipLevels;
-  if(pCreateInfo->format == VK_FORMAT_R8_UNORM)
+  if(pCreateInfo->format == VK_FORMAT_R8_UNORM || pCreateInfo->format == VK_FORMAT_BC2_UNORM_BLOCK)
     ret->bytesPerPixel = 1;
   *pImage = ret;
   return VK_SUCCESS;

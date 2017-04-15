@@ -114,7 +114,7 @@ static void normalize3(float4 &a)
   return normalize3(a.v);
 }
 
-float4 sample_tex_wrapped(float u, float v, VkImage tex)
+float4 sample_tex_wrapped(float u, float v, VkImage tex, VkDeviceSize byteOffs = 0)
 {
   u = fmodf(u, 1.0f);
   v = fmodf(v, 1.0f);
@@ -135,10 +135,12 @@ float4 sample_tex_wrapped(float u, float v, VkImage tex)
   float fu = u - float(iu0);
   float fv = v - float(iv0);
 
-  byte *TL = &tex->pixels[(iv0 * tex->extent.width + iu0) * tex->bytesPerPixel];
-  byte *TR = &tex->pixels[(iv0 * tex->extent.width + iu1) * tex->bytesPerPixel];
-  byte *BL = &tex->pixels[(iv1 * tex->extent.width + iu0) * tex->bytesPerPixel];
-  byte *BR = &tex->pixels[(iv1 * tex->extent.width + iu1) * tex->bytesPerPixel];
+  byte *base = tex->pixels + byteOffs;
+
+  byte *TL = base + (iv0 * tex->extent.width + iu0) * tex->bytesPerPixel;
+  byte *TR = base + (iv0 * tex->extent.width + iu1) * tex->bytesPerPixel;
+  byte *BL = base + (iv1 * tex->extent.width + iu0) * tex->bytesPerPixel;
+  byte *BR = base + (iv1 * tex->extent.width + iu1) * tex->bytesPerPixel;
 
   float4 top;
   top.x = float(TL[0]) * (1.0f - fu) + float(TR[0]) * fu;
@@ -159,6 +161,71 @@ float4 sample_tex_wrapped(float u, float v, VkImage tex)
   color.w = (top.w * (1.0f - fv) + bottom.w * fv) / 255.0f;
 
   return color;
+}
+
+float4 sample_cube_wrapped(float x, float y, float z, VkImage tex)
+{
+  float ax = abs(x);
+  float ay = abs(y);
+  float az = abs(z);
+
+  bool px = x > 0.0f;
+  bool py = y > 0.0f;
+  bool pz = z > 0.0f;
+
+  float axis, u, v;
+  VkDeviceSize offset = 0;
+
+  // X+
+  if(px && ax >= ay && ax >= az)
+  {
+    axis = ax;
+    u = -z;
+    v = -y;
+    offset = CalcSubresourceByteOffset(tex, 0, 0);
+  }
+  // X-
+  if(!px && ax >= ay && ax >= az)
+  {
+    axis = ax;
+    u = z;
+    v = -y;
+    offset = CalcSubresourceByteOffset(tex, 0, 1);
+  }
+  // Y+
+  if(py && ay >= ax && ay >= az)
+  {
+    axis = ay;
+    u = x;
+    v = z;
+    offset = CalcSubresourceByteOffset(tex, 0, 2);
+  }
+  // Y-
+  if(!py && ay >= ax && ay >= az)
+  {
+    axis = ay;
+    u = x;
+    v = -z;
+    offset = CalcSubresourceByteOffset(tex, 0, 3);
+  }
+  // Z+
+  if(pz && az >= ax && az >= ay)
+  {
+    axis = az;
+    u = x;
+    v = -y;
+    offset = CalcSubresourceByteOffset(tex, 0, 4);
+  }
+  // Z-
+  if(!pz && az >= ax && az >= ay)
+  {
+    axis = az;
+    u = -x;
+    v = -y;
+    offset = CalcSubresourceByteOffset(tex, 0, 5);
+  }
+
+  return sample_tex_wrapped(0.5f * (u / axis + 1.0f), 0.5f * (v / axis + 1.0f), tex, offset);
 }
 
 MICROPROFILE_DEFINE(vkcube_vs, "premade_shaders", "vkcube_vs", MP_BLACK);

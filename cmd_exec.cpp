@@ -126,11 +126,55 @@ void VkCommandBuffer_T::execute() const
         const cmd::CopyBuf2Img &data = pull<cmd::CopyBuf2Img>(&cur);
 
         // only support tight packed copies right now
-        assert(data.region.bufferRowLength == 0 && data.region.bufferOffset == 0);
+        assert(data.region.bufferRowLength == 0 && data.region.bufferImageHeight == 0);
 
-        memcpy(data.dstImage->pixels, data.srcBuffer->bytes, data.dstImage->extent.width *
-                                                                 data.dstImage->extent.height *
-                                                                 data.dstImage->bytesPerPixel);
+        // only support non-offseted copies
+        assert(data.region.imageOffset.x == 0 && data.region.imageOffset.y == 0 &&
+               data.region.imageOffset.z == 0);
+
+        uint32_t mip = data.region.imageSubresource.mipLevel;
+
+        const uint32_t w = std::max(1U, data.dstImage->extent.width >> mip);
+        const uint32_t h = std::max(1U, data.dstImage->extent.height >> mip);
+        const uint32_t bpp = data.dstImage->bytesPerPixel;
+
+        // only support copying the whole mip
+        assert(w == data.region.imageExtent.width && h == data.region.imageExtent.height);
+
+        VkDeviceSize offs = 0;
+        for(uint32_t m = 0; m < mip; m++)
+        {
+          const uint32_t mw = std::max(1U, data.dstImage->extent.width >> m);
+          const uint32_t mh = std::max(1U, data.dstImage->extent.height >> m);
+          offs += mw * mh * bpp;
+        }
+
+        if(data.region.imageSubresource.baseArrayLayer > 0)
+        {
+          uint32_t mw = data.dstImage->extent.width;
+          uint32_t mh = data.dstImage->extent.height;
+
+          VkDeviceSize sliceSize = 0;
+
+          do
+          {
+            sliceSize += mw * mh * bpp;
+            mw = std::max(1U, mw >> 1);
+            mh = std::max(1U, mh >> 1);
+          } while(mw > 1 || mh > 1);
+
+          offs += sliceSize * data.region.imageSubresource.baseArrayLayer;
+        }
+
+        // only support copying one layer at a time
+        assert(data.region.imageSubresource.layerCount == 1);
+
+        memcpy(data.dstImage->pixels, data.srcBuffer->bytes + data.region.bufferOffset,
+               data.dstImage->extent.width * data.dstImage->extent.height *
+                   data.dstImage->bytesPerPixel);
+
+        break;
+      }
 
         break;
       }

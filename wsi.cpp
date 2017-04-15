@@ -139,7 +139,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateSwapchainKHR(VkDevice device,
   for(size_t i = 0; i < ret->backbuffers.size(); i++)
   {
     ret->backbuffers[i].im = new VkImage_T();
-    ret->backbuffers[i].im->extent = ret->extent;
+    ret->backbuffers[i].im->extent = {ret->extent.width, ret->extent.height, 1};
     ret->backbuffers[i].im->bytesPerPixel = 4;
     ret->backbuffers[i].im->pixels = ret->backbuffers[i].mem->bytes;
   }

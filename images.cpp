@@ -22,8 +22,10 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateImage(VkDevice device, const VkImageCreat
 {
   VkImage ret = new VkImage_T;
   ret->pixels = NULL;    // no memory bound
-  ret->extent = {pCreateInfo->extent.width, pCreateInfo->extent.height};
+  ret->extent = pCreateInfo->extent;
   ret->bytesPerPixel = 4;
+  ret->imageType = pCreateInfo->imageType;
+  ret->arrayLayers = pCreateInfo->arrayLayers;
   if(pCreateInfo->format == VK_FORMAT_R8_UNORM)
     ret->bytesPerPixel = 1;
   *pImage = ret;
@@ -49,7 +51,10 @@ VKAPI_ATTR void VKAPI_CALL vkGetImageMemoryRequirements(VkDevice device, VkImage
   // TODO
   pMemoryRequirements->alignment = 1;
   pMemoryRequirements->memoryTypeBits = 0x3;
-  pMemoryRequirements->size = image->extent.width * image->extent.height * image->bytesPerPixel;
+  pMemoryRequirements->size =
+      image->extent.width * image->extent.height * image->arrayLayers * image->bytesPerPixel;
+  if(image->imageType == VK_IMAGE_TYPE_3D)
+    pMemoryRequirements->size *= image->extent.depth;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkGetImageSubresourceLayout(VkDevice device, VkImage image,

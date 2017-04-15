@@ -88,7 +88,9 @@ struct VkDeviceMemory_T
 
 struct VkImage_T
 {
-  VkExtent2D extent = {0, 0};
+  VkExtent3D extent = {0, 0, 0};
+  VkImageType imageType = VK_IMAGE_TYPE_MAX_ENUM;
+  uint32_t arrayLayers = 1;
   uint32_t bytesPerPixel = 4;
   byte *pixels = NULL;
 };

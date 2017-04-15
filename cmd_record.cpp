@@ -128,9 +128,12 @@ VKAPI_ATTR void VKAPI_CALL vkCmdCopyBufferToImage(VkCommandBuffer commandBuffer,
                                                   uint32_t regionCount,
                                                   const VkBufferImageCopy *pRegions)
 {
-  cmd::CopyBuf2Img *cmd = commandBuffer->push<cmd::CopyBuf2Img>();
-  cmd->srcBuffer = srcBuffer;
-  cmd->dstImage = dstImage;
-  assert(regionCount == 1);
-  cmd->region = pRegions[0];
+  for(uint32_t r = 0; r < regionCount; r++)
+  {
+    cmd::CopyBuf2Img *cmd = commandBuffer->push<cmd::CopyBuf2Img>();
+    cmd->srcBuffer = srcBuffer;
+    cmd->dstImage = dstImage;
+    cmd->region = pRegions[r];
+  }
+}
 }

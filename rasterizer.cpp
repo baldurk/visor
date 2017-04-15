@@ -183,6 +183,11 @@ static int4 cross(int4 a, int4 b)
   return int4((a.y * b.z) - (b.y * a.z), (a.z * b.x) - (b.z * a.x), (a.x * b.y) - (b.x * a.y), 1);
 }
 
+static float clamp01(float in)
+{
+  return in > 1.0f ? 1.0f : (in < 0.0f ? 0.0f : in);
+}
+
 static int4 barycentric(const int4 *verts, const int4 &pixel)
 {
   int4 u = cross(int4(verts[1].x - verts[0].x, verts[2].x - verts[0].x, verts[0].x - pixel.x, 1),
@@ -380,9 +385,90 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
             float4 pix;
             state.pipeline->fs(state, pixdepth, n, vsout, pix);
 
-            bits[(y * w + x) * bpp + 2] = byte(pix.x * 255.0f);
-            bits[(y * w + x) * bpp + 1] = byte(pix.y * 255.0f);
-            bits[(y * w + x) * bpp + 0] = byte(pix.z * 255.0f);
+            if(state.pipeline->blend.blendEnable)
+            {
+              float4 existing = float4(bits[(y * w + x) * bpp + 2], bits[(y * w + x) * bpp + 1],
+                                       bits[(y * w + x) * bpp + 0], 1.0f);
+              existing.x /= 255.0f;
+              existing.y /= 255.0f;
+              existing.z /= 255.0f;
+
+              float srcFactor = 1.0f;
+
+              switch(state.pipeline->blend.srcColorBlendFactor)
+              {
+                case VK_BLEND_FACTOR_ZERO: srcFactor = 0.0f; break;
+                case VK_BLEND_FACTOR_ONE: srcFactor = 1.0f; break;
+                case VK_BLEND_FACTOR_SRC_ALPHA: srcFactor = pix.w; break;
+                case VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA: srcFactor = 1.0f - pix.w; break;
+                case VK_BLEND_FACTOR_SRC_COLOR:
+                case VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR:
+                case VK_BLEND_FACTOR_DST_COLOR:
+                case VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR:
+                case VK_BLEND_FACTOR_DST_ALPHA:
+                case VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA:
+                case VK_BLEND_FACTOR_CONSTANT_COLOR:
+                case VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR:
+                case VK_BLEND_FACTOR_CONSTANT_ALPHA:
+                case VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA:
+                case VK_BLEND_FACTOR_SRC_ALPHA_SATURATE:
+                case VK_BLEND_FACTOR_SRC1_COLOR:
+                case VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR:
+                case VK_BLEND_FACTOR_SRC1_ALPHA:
+                case VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA:
+                  printf("Unsupported blend factor\n");
+                  break;
+              }
+
+              float dstFactor = 1.0f;
+
+              switch(state.pipeline->blend.dstColorBlendFactor)
+              {
+                case VK_BLEND_FACTOR_ZERO: dstFactor = 0.0f; break;
+                case VK_BLEND_FACTOR_ONE: dstFactor = 1.0f; break;
+                case VK_BLEND_FACTOR_SRC_ALPHA: dstFactor = pix.w; break;
+                case VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA: dstFactor = 1.0f - pix.w; break;
+                case VK_BLEND_FACTOR_SRC_COLOR:
+                case VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR:
+                case VK_BLEND_FACTOR_DST_COLOR:
+                case VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR:
+                case VK_BLEND_FACTOR_DST_ALPHA:
+                case VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA:
+                case VK_BLEND_FACTOR_CONSTANT_COLOR:
+                case VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR:
+                case VK_BLEND_FACTOR_CONSTANT_ALPHA:
+                case VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA:
+                case VK_BLEND_FACTOR_SRC_ALPHA_SATURATE:
+                case VK_BLEND_FACTOR_SRC1_COLOR:
+                case VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR:
+                case VK_BLEND_FACTOR_SRC1_ALPHA:
+                case VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA:
+                  printf("Unsupported blend factor\n");
+                  break;
+              }
+
+              float4 blended;
+
+              switch(state.pipeline->blend.colorBlendOp)
+              {
+                case VK_BLEND_OP_ADD:
+                  blended.x = srcFactor * pix.x + dstFactor * existing.x;
+                  blended.y = srcFactor * pix.y + dstFactor * existing.y;
+                  blended.z = srcFactor * pix.z + dstFactor * existing.z;
+                  blended.w = srcFactor * pix.w + dstFactor * existing.w;
+                  break;
+                case VK_BLEND_OP_SUBTRACT:
+                case VK_BLEND_OP_REVERSE_SUBTRACT:
+                case VK_BLEND_OP_MIN:
+                case VK_BLEND_OP_MAX: printf("Unsupported blend op\n"); break;
+              }
+
+              pix = blended;
+            }
+
+            bits[(y * w + x) * bpp + 2] = byte(clamp01(pix.x) * 255.0f);
+            bits[(y * w + x) * bpp + 1] = byte(clamp01(pix.y) * 255.0f);
+            bits[(y * w + x) * bpp + 0] = byte(clamp01(pix.z) * 255.0f);
 
             depth_passed++;
 

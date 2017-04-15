@@ -46,6 +46,15 @@ vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32
       ret->depthWriteEnable = pCreateInfos[i].pDepthStencilState->depthWriteEnable == VK_TRUE;
     }
 
+    if(pCreateInfos[i].pColorBlendState && pCreateInfos[i].pColorBlendState->attachmentCount > 0)
+    {
+      ret->blend = pCreateInfos[i].pColorBlendState->pAttachments[0];
+    }
+    else
+    {
+      memset(&ret->blend, 0, sizeof(ret->blend));
+    }
+
     for(uint32_t s = 0; s < pCreateInfos[i].stageCount; s++)
     {
       if(pCreateInfos[i].pStages[s].stage == VK_SHADER_STAGE_VERTEX_BIT)

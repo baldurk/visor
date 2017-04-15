@@ -119,6 +119,7 @@ struct VkPipeline_T
   VkCullModeFlags cullMode = VK_CULL_MODE_FLAG_BITS_MAX_ENUM;
   VkCompareOp depthCompareOp = VK_COMPARE_OP_ALWAYS;
   bool depthWriteEnable = false;
+  VkPipelineColorBlendAttachmentState blend;
   VertexShader vs = NULL;
   FragmentShader fs = NULL;
 };

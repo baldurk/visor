@@ -256,13 +256,19 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
 
   int written = 0, tested = 0, tris_in = 0, tris_out = 0;
 
-  const int4 *tri = winCoords.data();
-  const VertexCacheEntry *vsout = shadedVerts.data();
+  const int4 *curTriangle = winCoords.data();
+  const VertexCacheEntry *curVSOut = shadedVerts.data();
 
   assert(winCoords.size() % 3 == 0);
 
   for(int i = 0; i < winCoords.size(); i += 3)
   {
+    const int4 *tri = curTriangle;
+    const VertexCacheEntry *vsout = curVSOut;
+
+    curTriangle += 3;
+    curVSOut += 3;
+
     tris_in++;
 
     int a = area(tri[0], tri[1], tri[2]);
@@ -346,9 +352,6 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
         tested++;
       }
     }
-
-    tri += 3;
-    vsout += 3;
   }
 
   MICROPROFILE_COUNTER_ADD("rasterizer/pixels/tested", tested);

@@ -54,4 +54,5 @@ struct VertexCacheEntry
 };
 
 void ClearTarget(VkImage target, const VkClearColorValue &col);
+void ClearTarget(VkImage target, const VkClearDepthStencilValue &col);
 void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool indexed);

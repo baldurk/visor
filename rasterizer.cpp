@@ -206,6 +206,26 @@ static int4 barycentric(const int4 *verts, const int4 &pixel)
   return int4(u.z - (u.x + u.y), u.x, u.y, u.z);
 }
 
+void ClearTarget(VkImage target, const VkClearDepthStencilValue &col)
+{
+  MICROPROFILE_SCOPE(rasterizer_ClearTarget);
+
+  byte *bits = target->pixels;
+  const uint32_t w = target->extent.width;
+  const uint32_t h = target->extent.height;
+  const uint32_t bpp = target->bytesPerPixel;
+
+  assert(bpp == 4);
+
+  for(uint32_t y = 0; y < h; y++)
+  {
+    for(uint32_t x = 0; x < w; x++)
+    {
+      memcpy(&bits[(y * w + x) * 4], &col.depth, 4);
+    }
+  }
+}
+
 void ClearTarget(VkImage target, const VkClearColorValue &col)
 {
   MICROPROFILE_SCOPE(rasterizer_ClearTarget);

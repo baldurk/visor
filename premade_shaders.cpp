@@ -114,6 +114,53 @@ static void normalize3(float4 &a)
   return normalize3(a.v);
 }
 
+float4 sample_tex_wrapped(float u, float v, VkImage tex)
+{
+  u = fmodf(u, 1.0f);
+  v = fmodf(v, 1.0f);
+
+  u *= tex->extent.width;
+  v *= tex->extent.height;
+
+  int iu0 = int(u);
+  int iv0 = int(v);
+  int iu1 = iu0 + 1;
+  int iv1 = iv0 + 1;
+
+  if(iu1 >= (int)tex->extent.width)
+    iu1 -= tex->extent.width;
+  if(iv1 >= (int)tex->extent.height)
+    iv1 -= tex->extent.height;
+
+  float fu = u - float(iu0);
+  float fv = v - float(iv0);
+
+  byte *TL = &tex->pixels[(iv0 * tex->extent.width + iu0) * tex->bytesPerPixel];
+  byte *TR = &tex->pixels[(iv0 * tex->extent.width + iu1) * tex->bytesPerPixel];
+  byte *BL = &tex->pixels[(iv1 * tex->extent.width + iu0) * tex->bytesPerPixel];
+  byte *BR = &tex->pixels[(iv1 * tex->extent.width + iu1) * tex->bytesPerPixel];
+
+  float4 top;
+  top.x = float(TL[0]) * (1.0f - fu) + float(TR[0]) * fu;
+  top.y = float(TL[1]) * (1.0f - fu) + float(TR[1]) * fu;
+  top.z = float(TL[2]) * (1.0f - fu) + float(TR[2]) * fu;
+  top.w = float(TL[3]) * (1.0f - fu) + float(TR[3]) * fu;
+
+  float4 bottom;
+  bottom.x = float(BL[0]) * (1.0f - fu) + float(BR[0]) * fu;
+  bottom.y = float(BL[1]) * (1.0f - fu) + float(BR[1]) * fu;
+  bottom.z = float(BL[2]) * (1.0f - fu) + float(BR[2]) * fu;
+  bottom.w = float(BL[3]) * (1.0f - fu) + float(BR[3]) * fu;
+
+  float4 color;
+  color.x = (top.x * (1.0f - fv) + bottom.x * fv) / 255.0f;
+  color.y = (top.y * (1.0f - fv) + bottom.y * fv) / 255.0f;
+  color.z = (top.z * (1.0f - fv) + bottom.z * fv) / 255.0f;
+  color.w = (top.w * (1.0f - fv) + bottom.w * fv) / 255.0f;
+
+  return color;
+}
+
 MICROPROFILE_DEFINE(vkcube_vs, "premade_shaders", "vkcube_vs", MP_BLACK);
 MICROPROFILE_DEFINE(sascha_textoverlay_vs, "premade_shaders", "sascha_textoverlay_vs", MP_BLACK);
 MICROPROFILE_DEFINE(sascha_texture_vs, "premade_shaders", "sascha_texture_vs", MP_BLACK);
@@ -152,45 +199,7 @@ void vkcube_fs(const GPUState &state, float pixdepth, const float4 &bary,
 
   VkImage tex = state.set->binds[1].data.imageInfo.imageView->image;
 
-  if(u >= 1.0f)
-    u -= 1.0f;
-  if(v >= 1.0f)
-    v -= 1.0f;
-
-  u *= tex->extent.width;
-  v *= tex->extent.height;
-
-  int iu0 = int(u);
-  int iv0 = int(v);
-  int iu1 = iu0 + 1;
-  int iv1 = iv0 + 1;
-
-  if(iu1 >= (int)tex->extent.width)
-    iu1 -= tex->extent.width;
-  if(iv1 >= (int)tex->extent.height)
-    iv1 -= tex->extent.height;
-
-  float fu = u - float(iu0);
-  float fv = v - float(iv0);
-
-  byte *TL = &tex->pixels[(iv0 * tex->extent.width + iu0) * tex->bytesPerPixel];
-  byte *TR = &tex->pixels[(iv0 * tex->extent.width + iu1) * tex->bytesPerPixel];
-  byte *BL = &tex->pixels[(iv1 * tex->extent.width + iu0) * tex->bytesPerPixel];
-  byte *BR = &tex->pixels[(iv1 * tex->extent.width + iu1) * tex->bytesPerPixel];
-
-  float4 top;
-  top.x = float(TL[0]) * (1.0f - fu) + float(TR[0]) * fu;
-  top.y = float(TL[1]) * (1.0f - fu) + float(TR[1]) * fu;
-  top.z = float(TL[2]) * (1.0f - fu) + float(TR[2]) * fu;
-
-  float4 bottom;
-  bottom.x = float(BL[0]) * (1.0f - fu) + float(BR[0]) * fu;
-  bottom.y = float(BL[1]) * (1.0f - fu) + float(BR[1]) * fu;
-  bottom.z = float(BL[2]) * (1.0f - fu) + float(BR[2]) * fu;
-
-  out.x = (top.x * (1.0f - fv) + bottom.x * fv) / 255.0f;
-  out.y = (top.y * (1.0f - fv) + bottom.y * fv) / 255.0f;
-  out.z = (top.z * (1.0f - fv) + bottom.z * fv) / 255.0f;
+  out = sample_tex_wrapped(u, v, tex);
   out.w = 1.0f;
 }
 
@@ -224,39 +233,8 @@ void sascha_textoverlay_fs(const GPUState &state, float pixdepth, const float4 &
 
   VkImage tex = state.set->binds[0].data.imageInfo.imageView->image;
 
-  if(u >= 1.0f)
-    u -= 1.0f;
-  if(v >= 1.0f)
-    v -= 1.0f;
-
-  u *= tex->extent.width;
-  v *= tex->extent.height;
-
-  int iu0 = int(u);
-  int iv0 = int(v);
-  int iu1 = iu0 + 1;
-  int iv1 = iv0 + 1;
-
-  if(iu1 >= (int)tex->extent.width)
-    iu1 -= tex->extent.width;
-  if(iv1 >= (int)tex->extent.height)
-    iv1 -= tex->extent.height;
-
-  float fu = u - float(iu0);
-  float fv = v - float(iv0);
-
-  byte *TL = &tex->pixels[(iv0 * tex->extent.width + iu0) * tex->bytesPerPixel];
-  byte *TR = &tex->pixels[(iv0 * tex->extent.width + iu1) * tex->bytesPerPixel];
-  byte *BL = &tex->pixels[(iv1 * tex->extent.width + iu0) * tex->bytesPerPixel];
-  byte *BR = &tex->pixels[(iv1 * tex->extent.width + iu1) * tex->bytesPerPixel];
-
-  float top;
-  top = float(TL[0]) * (1.0f - fu) + float(TR[0]) * fu;
-
-  float bottom;
-  bottom = float(BL[0]) * (1.0f - fu) + float(BR[0]) * fu;
-
-  out.x = out.y = out.z = (top * (1.0f - fv) + bottom * fv) / 255.0f;
+  out = sample_tex_wrapped(u, v, tex);
+  out.z = out.y = out.x;
   out.w = 1.0f;
 }
 
@@ -349,53 +327,8 @@ void sascha_texture_fs(const GPUState &state, float pixdepth, const float4 &bary
   float u = dot(bary, float4(tri[0].interps[0].x, tri[1].interps[0].x, tri[2].interps[0].x, 0.0f));
   float v = dot(bary, float4(tri[0].interps[0].y, tri[1].interps[0].y, tri[2].interps[0].y, 0.0f));
 
-  float ou = u;
-  float ov = v;
-
-  if(u >= 1.0f)
-    u -= 1.0f;
-  if(v >= 1.0f)
-    v -= 1.0f;
-
-  u *= tex->extent.width;
-  v *= tex->extent.height;
-
-  int iu0 = int(u);
-  int iv0 = int(v);
-  int iu1 = iu0 + 1;
-  int iv1 = iv0 + 1;
-
-  if(iu1 >= (int)tex->extent.width)
-    iu1 -= tex->extent.width;
-  if(iv1 >= (int)tex->extent.height)
-    iv1 -= tex->extent.height;
-
-  float fu = u - float(iu0);
-  float fv = v - float(iv0);
-
-  byte *TL = &tex->pixels[(iv0 * tex->extent.width + iu0) * tex->bytesPerPixel];
-  byte *TR = &tex->pixels[(iv0 * tex->extent.width + iu1) * tex->bytesPerPixel];
-  byte *BL = &tex->pixels[(iv1 * tex->extent.width + iu0) * tex->bytesPerPixel];
-  byte *BR = &tex->pixels[(iv1 * tex->extent.width + iu1) * tex->bytesPerPixel];
-
-  float4 top;
-  top.x = float(TL[0]) * (1.0f - fu) + float(TR[0]) * fu;
-  top.y = float(TL[1]) * (1.0f - fu) + float(TR[1]) * fu;
-  top.z = float(TL[2]) * (1.0f - fu) + float(TR[2]) * fu;
-  top.w = float(TL[3]) * (1.0f - fu) + float(TR[3]) * fu;
-
-  float4 bottom;
-  bottom.x = float(BL[0]) * (1.0f - fu) + float(BR[0]) * fu;
-  bottom.y = float(BL[1]) * (1.0f - fu) + float(BR[1]) * fu;
-  bottom.z = float(BL[2]) * (1.0f - fu) + float(BR[2]) * fu;
-  bottom.w = float(BL[3]) * (1.0f - fu) + float(BR[3]) * fu;
-
   // vec4 color = texture(samplerColor, inUV, inLodBias);
-  float4 color;
-  color.x = (top.x * (1.0f - fv) + bottom.x * fv) / 255.0f;
-  color.y = (top.y * (1.0f - fv) + bottom.y * fv) / 255.0f;
-  color.z = (top.z * (1.0f - fv) + bottom.z * fv) / 255.0f;
-  color.w = (top.w * (1.0f - fv) + bottom.w * fv) / 255.0f;
+  float4 color = sample_tex_wrapped(u, v, tex);
 
   // vec3 N = normalize(inNormal);
   float4 N;

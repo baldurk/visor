@@ -173,6 +173,7 @@
     <ClCompile Include="renderpass.cpp" />
     <ClCompile Include="shaders.cpp" />
     <ClCompile Include="stats.cpp" />
+    <ClCompile Include="texture_sampling.cpp" />
     <ClCompile Include="wsi.cpp" />
     <ClCompile Include="memory.cpp" />
     <ClCompile Include="precompiled.cpp" />

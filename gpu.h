@@ -57,3 +57,7 @@ struct VertexCacheEntry
 void ClearTarget(VkImage target, const VkClearColorValue &col);
 void ClearTarget(VkImage target, const VkClearDepthStencilValue &col);
 void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool indexed);
+
+void InitTextureCache();
+float4 sample_tex_wrapped(float u, float v, VkImage tex, VkDeviceSize byteOffs = 0);
+float4 sample_cube_wrapped(float x, float y, float z, VkImage tex);

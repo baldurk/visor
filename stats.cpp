@@ -24,9 +24,12 @@ void BeginFrameStats()
 {
   MICROPROFILE_COUNTER_SET("rasterizer/pixels/tested", 0);
   MICROPROFILE_COUNTER_SET("rasterizer/pixels/written", 0);
+  MICROPROFILE_COUNTER_SET("rasterizer/depth/passed", 0);
   MICROPROFILE_COUNTER_SET("rasterizer/triangles/in", 0);
   MICROPROFILE_COUNTER_SET("rasterizer/triangles/out", 0);
   MICROPROFILE_COUNTER_SET("rasterizer/draws/in", 0);
+  MICROPROFILE_COUNTER_SET("tcache/misses", 0);
+  MICROPROFILE_COUNTER_SET("tcache/hits", 0);
 }
 
 void EndFrameStats()

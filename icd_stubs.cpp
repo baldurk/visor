@@ -1,4 +1,5 @@
 #include "precompiled.h"
+#include "gpu.h"
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateInstance(const VkInstanceCreateInfo *pCreateInfo,
                                                 const VkAllocationCallbacks *pAllocator,
@@ -8,6 +9,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateInstance(const VkInstanceCreateInfo *pCre
   set_loader_magic_value(*pInstance);
   InitFrameStats();
   InitPremadeShaders();
+  InitTextureCache();
   return VK_SUCCESS;
 }
 

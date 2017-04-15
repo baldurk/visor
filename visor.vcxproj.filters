@@ -21,6 +21,7 @@
     <ClCompile Include="descriptors.cpp" />
     <ClCompile Include="shaders.cpp" />
     <ClCompile Include="premade_shaders.cpp" />
+    <ClCompile Include="texture_sampling.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="precompiled.h" />

@@ -79,4 +79,12 @@ struct CopyBuf2Img
   VkImage dstImage;
   VkBufferImageCopy region;
 };
+
+struct CopyBuf
+{
+  static const Command CommandID = Command::CopyBuf;
+  VkBuffer srcBuffer;
+  VkBuffer dstBuffer;
+  VkBufferCopy region;
+};
 };

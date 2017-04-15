@@ -40,6 +40,7 @@ enum class Command : uint16_t
   Draw,
   DrawIndexed,
   CopyBuf2Img,
+  CopyBuf,
 };
 
 struct GPUState;

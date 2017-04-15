@@ -91,6 +91,7 @@
   ICD_FUNC(vkCmdDraw);                     \
   ICD_FUNC(vkCmdDrawIndexed);              \
   ICD_FUNC(vkCmdCopyBufferToImage);        \
+  ICD_FUNC(vkCmdCopyBuffer);               \
   ICD_FUNC(vkQueueSubmit);                 \
   ICD_FUNC(vkWaitForFences);               \
   ICD_FUNC(vkResetFences);                 \

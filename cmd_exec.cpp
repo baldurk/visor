@@ -175,6 +175,12 @@ void VkCommandBuffer_T::execute() const
 
         break;
       }
+      case Command::CopyBuf:
+      {
+        const cmd::CopyBuf &data = pull<cmd::CopyBuf>(&cur);
+
+        memcpy(data.dstBuffer->bytes + data.region.dstOffset,
+               data.srcBuffer->bytes + data.region.srcOffset, data.region.size);
 
         break;
       }

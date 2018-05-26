@@ -1,3 +1,6 @@
 Win32/
 x64/
 .vs/
+ipch/
+*.VC.*
+*.user

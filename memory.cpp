@@ -32,3 +32,10 @@ VKAPI_ATTR VkResult VKAPI_CALL vkMapMemory(VkDevice device, VkDeviceMemory memor
 VKAPI_ATTR void VKAPI_CALL vkUnmapMemory(VkDevice device, VkDeviceMemory memory)
 {
 }
+
+VKAPI_ATTR VkResult VKAPI_CALL vkFlushMappedMemoryRanges(VkDevice device, uint32_t memoryRangeCount,
+                                                         const VkMappedMemoryRange *pMemoryRanges)
+{
+  // no caching, no flushing!
+  return VK_SUCCESS;
+}

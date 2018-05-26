@@ -57,6 +57,7 @@
   ICD_FUNC(vkFreeMemory);                  \
   ICD_FUNC(vkMapMemory);                   \
   ICD_FUNC(vkUnmapMemory);                 \
+  ICD_FUNC(vkFlushMappedMemoryRanges);     \
   ICD_FUNC(vkGetImageSubresourceLayout);   \
   ICD_FUNC(vkCreateSampler);               \
   ICD_FUNC(vkDestroySampler);              \

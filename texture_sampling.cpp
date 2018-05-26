@@ -10,9 +10,11 @@ struct TextureCacheEntry
   VkDeviceSize byteOffs = 0;
   VkImage tex = VK_NULL_HANDLE;
   float4 pixels[4][4];
-} tcache_data[8];
+};
 
-TextureCacheEntry *tcache_head = NULL;
+__declspec(thread) TextureCacheEntry tcache_data[8];
+
+__declspec(thread) TextureCacheEntry *tcache_head = NULL;
 
 void InitTextureCache()
 {

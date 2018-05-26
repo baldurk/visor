@@ -1,5 +1,98 @@
 #include "precompiled.h"
+#include <condition_variable>
+#include <queue>
+#include <thread>
 #include "gpu.h"
+
+// # cores - 1 (main rast thread steals work)
+#define NUM_THREADS 7
+
+struct TriangleWork
+{
+  const GPUState *state;
+
+  int ABx;
+  int ABy;
+  int ACx;
+  int ACy;
+
+  const VertexCacheEntry *vsout;
+  const int4 *tri;
+
+  int barymul;
+  int area2;
+
+  float invarea;
+
+  float4 invw;
+  float4 depth;
+
+  int4 minwin, maxwin;
+};
+
+struct Rasterizer
+{
+  std::thread threads[NUM_THREADS];
+  std::condition_variable wake;
+  std::mutex mutex;
+  bool kill = false;
+  std::queue<TriangleWork> triwork;
+
+  std::atomic<int> pending;
+} rast;
+
+void ProcessTriangles(const TriangleWork &work);
+
+void RasterLoop()
+{
+  InitTextureCache();
+
+  for(;;)
+  {
+    TriangleWork triwork;
+
+    {
+      std::unique_lock<std::mutex> lk(rast.mutex);
+      rast.wake.wait(lk, [] { return rast.kill || !rast.triwork.empty(); });
+
+      if(rast.kill)
+        return;
+
+      triwork = rast.triwork.front();
+      rast.triwork.pop();
+    }
+
+    ProcessTriangles(triwork);
+
+    rast.pending--;
+  }
+}
+
+void InitRasterThreads()
+{
+  InitTextureCache();
+  for(int i = 0; i < NUM_THREADS; i++)
+    rast.threads[i] = std::thread([i] {
+      char buf[32];
+      sprintf_s(buf, "Raster%i", i);
+      MicroProfileOnThreadCreate(buf);
+      RasterLoop();
+    });
+}
+
+void ShutdownRasterThreads()
+{
+  {
+    std::unique_lock<std::mutex> lk(rast.mutex);
+    rast.kill = true;
+  }
+
+  rast.wake.notify_all();
+
+  for(int i = 0; i < NUM_THREADS; i++)
+    if(rast.threads[i].joinable())
+      rast.threads[i].join();
+}
 
 uint32_t GetIndex(const GPUState &state, uint32_t vertexIndex, bool indexed)
 {
@@ -190,7 +283,8 @@ static inline int4 barycentric(const int ABx, const int ABy, const int ACx, cons
 
   static int4 cross(int4 a, int4 b)
   {
-    return int4((a.y * b.z) - (b.y * a.z), (a.z * b.x) - (b.z * a.x), (a.x * b.y) - (b.x * a.y), 1);
+    return int4((a.y * b.z) - (b.y * a.z), (a.z * b.x) - (b.z * a.x), (a.x * b.y) - (b.x * a.y),
+  1);
   }
 
   int4 u = cross(int4(verts[1].x - verts[0].x, verts[2].x - verts[0].x, verts[0].x - pixel.x, 1),
@@ -267,12 +361,8 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
 {
   MICROPROFILE_SCOPE(rasterizer_DrawTriangles);
 
-  byte *bits = state.col[0]->pixels;
   const uint32_t w = state.col[0]->extent.width;
   const uint32_t h = state.col[0]->extent.height;
-  const uint32_t bpp = state.col[0]->bytesPerPixel;
-
-  float *depthbits = state.depth ? (float *)state.depth->pixels : NULL;
 
   static std::vector<VertexCacheEntry> shadedVerts;
   shadedVerts.clear();
@@ -282,7 +372,6 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
   winCoords.clear();
   ToWindow(w, h, shadedVerts, winCoords);
 
-  int pixels_written = 0, pixels_tested = 0, depth_passed = 0;
   int tris_in = 0, tris_out = 0;
 
   const int4 *curTriangle = winCoords.data();
@@ -331,17 +420,10 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
       area2_flipped *= -1;
     }
 
-    float invarea = 1.0f / float(area2_flipped);
-
     tris_out++;
 
     int4 minwin, maxwin;
     MinMax(tri, minwin, maxwin);
-
-    float4 invw(1.0f / vsout[0].position.w, 1.0f / vsout[1].position.w, 1.0f / vsout[2].position.w,
-                0.0f);
-    float4 depth(vsout[0].position.z * invw.x, vsout[1].position.z * invw.y,
-                 vsout[2].position.z * invw.z, 0.0f);
 
     // clamp to screen, assume guard band is enough!
     minwin.x = std::max(0, minwin.x);
@@ -349,170 +431,261 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
     maxwin.x = std::min(int(w - 1), maxwin.x);
     maxwin.y = std::min(int(h - 1), maxwin.y);
 
-    const int ABx = tri[1].x - tri[0].x;
-    const int ABy = tri[1].y - tri[0].y;
-    const int ACx = tri[2].x - tri[0].x;
-    const int ACy = tri[2].y - tri[0].y;
+    TriangleWork work;
 
-    for(int y = minwin.y; y < maxwin.y; y++)
+    work.state = &state;
+    work.ABx = tri[1].x - tri[0].x;
+    work.ABy = tri[1].y - tri[0].y;
+    work.ACx = tri[2].x - tri[0].x;
+    work.ACy = tri[2].y - tri[0].y;
+    work.vsout = vsout;
+    work.tri = tri;
+    work.barymul = barymul;
+    work.area2 = area2;
+    work.invarea = 1.0f / float(area2_flipped);
+    work.invw = float4(1.0f / vsout[0].position.w, 1.0f / vsout[1].position.w,
+                       1.0f / vsout[2].position.w, 0.0f);
+    work.depth = float4(vsout[0].position.z * work.invw.x, vsout[1].position.z * work.invw.y,
+                        vsout[2].position.z * work.invw.z, 0.0f);
+
+    const int blockSize = 32;
+
+    int xblocks = 1 + (maxwin.x - minwin.x) / blockSize;
+    int yblocks = 1 + (maxwin.y - minwin.y) / blockSize;
+
     {
-      for(int x = minwin.x; x < maxwin.x; x++)
+      MICROPROFILE_SCOPEI("rasterizer", "submit_work", MP_GREEN);
+
+      for(int x = 0; x < xblocks; x++)
       {
-        int4 b = barycentric(ABx, ABy, ACx, ACy, area2, tri, int4(x, y, 0, 0));
-
-        b.x *= barymul;
-        b.y *= barymul;
-        b.z *= barymul;
-
-        if(b.x >= 0 && b.y >= 0 && b.z >= 0)
+        for(int y = 0; y < yblocks; y++)
         {
-          // normalise the barycentrics
-          float4 n = float4(float(b.x), float(b.y), float(b.z), 0.0f);
-          n.x *= invarea;
-          n.y *= invarea;
-          n.z *= invarea;
+          work.minwin = minwin;
+          work.minwin.x += blockSize * x;
+          work.minwin.y += blockSize * y;
 
-          // calculate pixel depth
-          float pixdepth = n.x * depth.x + n.y * depth.y + n.z * depth.z;
+          work.maxwin.x = std::min(maxwin.x, work.minwin.x + blockSize);
+          work.maxwin.y = std::min(maxwin.y, work.minwin.y + blockSize);
 
-          bool passed = true;
-
-          if(state.pipeline->depthCompareOp != VK_COMPARE_OP_ALWAYS && depthbits)
           {
-            float curdepth = depthbits[y * w + x];
-
-            switch(state.pipeline->depthCompareOp)
-            {
-              case VK_COMPARE_OP_NEVER: passed = false; break;
-              case VK_COMPARE_OP_LESS: passed = pixdepth < curdepth; break;
-              case VK_COMPARE_OP_EQUAL: passed = pixdepth == curdepth; break;
-              case VK_COMPARE_OP_LESS_OR_EQUAL: passed = pixdepth <= curdepth; break;
-              case VK_COMPARE_OP_GREATER: passed = pixdepth > curdepth; break;
-              case VK_COMPARE_OP_NOT_EQUAL: passed = pixdepth != curdepth; break;
-              case VK_COMPARE_OP_GREATER_OR_EQUAL: passed = pixdepth >= curdepth; break;
-            }
+            std::unique_lock<std::mutex> lk(rast.mutex);
+            rast.triwork.push(work);
+            rast.pending++;
           }
+        }
+      }
+    }
 
-          if(passed)
+    {
+      MICROPROFILE_SCOPEI("rasterizer", "notify_all", MP_RED);
+      rast.wake.notify_all();
+    }
+  }
+
+  {
+    MICROPROFILE_SCOPEI("rasterizer", "pending_flush", MP_BLUE);
+    while(rast.pending)
+    {
+      TriangleWork triwork;
+      bool work = false;
+
+      {
+        std::unique_lock<std::mutex> lk(rast.mutex);
+
+        if(!rast.triwork.empty())
+        {
+          triwork = rast.triwork.front();
+          rast.triwork.pop();
+          work = true;
+        }
+      }
+
+      if(work)
+      {
+        ProcessTriangles(triwork);
+
+        rast.pending--;
+      }
+    }
+  }
+
+  MICROPROFILE_COUNTER_ADD("rasterizer/triangles/in", tris_in);
+  MICROPROFILE_COUNTER_ADD("rasterizer/triangles/out", tris_out);
+  MICROPROFILE_COUNTER_ADD("rasterizer/draws/in", 1);
+}
+
+void ProcessTriangles(const TriangleWork &work)
+{
+  MICROPROFILE_SCOPE(rasterizer_ProcessTriangles);
+
+  MICROPROFILE_COUNTER_ADD("rasterizer/blocks/processed", 1);
+
+  const GPUState &state = *work.state;
+  const uint32_t w = state.col[0]->extent.width;
+  const uint32_t h = state.col[0]->extent.height;
+  const uint32_t bpp = state.col[0]->bytesPerPixel;
+
+  byte *bits = state.col[0]->pixels;
+  float *depthbits = state.depth ? (float *)state.depth->pixels : NULL;
+
+  int pixels_written = 0, pixels_tested = 0, depth_passed = 0;
+
+  for(int y = work.minwin.y; y < work.maxwin.y; y++)
+  {
+    for(int x = work.minwin.x; x < work.maxwin.x; x++)
+    {
+      int4 b = barycentric(work.ABx, work.ABy, work.ACx, work.ACy, work.area2, work.tri,
+                           int4(x, y, 0, 0));
+
+      b.x *= work.barymul;
+      b.y *= work.barymul;
+      b.z *= work.barymul;
+
+      if(b.x >= 0 && b.y >= 0 && b.z >= 0)
+      {
+        // normalise the barycentrics
+        float4 n = float4(float(b.x), float(b.y), float(b.z), 0.0f);
+        n.x *= work.invarea;
+        n.y *= work.invarea;
+        n.z *= work.invarea;
+
+        // calculate pixel depth
+        float pixdepth = n.x * work.depth.x + n.y * work.depth.y + n.z * work.depth.z;
+
+        bool passed = true;
+
+        if(state.pipeline->depthCompareOp != VK_COMPARE_OP_ALWAYS && depthbits)
+        {
+          float curdepth = depthbits[y * w + x];
+
+          switch(state.pipeline->depthCompareOp)
           {
-            // perspective correct with W
-            n.x *= invw.x;
-            n.y *= invw.y;
-            n.z *= invw.z;
-
-            float invlen = 1.0f / (n.x + n.y + n.z);
-            n.x *= invlen;
-            n.y *= invlen;
-            n.z *= invlen;
-
-            float4 pix;
-            state.pipeline->fs(state, pixdepth, n, vsout, pix);
-
-            if(state.pipeline->blend.blendEnable)
-            {
-              float4 existing = float4(bits[(y * w + x) * bpp + 2], bits[(y * w + x) * bpp + 1],
-                                       bits[(y * w + x) * bpp + 0], 1.0f);
-              existing.x /= 255.0f;
-              existing.y /= 255.0f;
-              existing.z /= 255.0f;
-
-              float srcFactor = 1.0f;
-
-              switch(state.pipeline->blend.srcColorBlendFactor)
-              {
-                case VK_BLEND_FACTOR_ZERO: srcFactor = 0.0f; break;
-                case VK_BLEND_FACTOR_ONE: srcFactor = 1.0f; break;
-                case VK_BLEND_FACTOR_SRC_ALPHA: srcFactor = pix.w; break;
-                case VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA: srcFactor = 1.0f - pix.w; break;
-                case VK_BLEND_FACTOR_SRC_COLOR:
-                case VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR:
-                case VK_BLEND_FACTOR_DST_COLOR:
-                case VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR:
-                case VK_BLEND_FACTOR_DST_ALPHA:
-                case VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA:
-                case VK_BLEND_FACTOR_CONSTANT_COLOR:
-                case VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR:
-                case VK_BLEND_FACTOR_CONSTANT_ALPHA:
-                case VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA:
-                case VK_BLEND_FACTOR_SRC_ALPHA_SATURATE:
-                case VK_BLEND_FACTOR_SRC1_COLOR:
-                case VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR:
-                case VK_BLEND_FACTOR_SRC1_ALPHA:
-                case VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA:
-                  printf("Unsupported blend factor\n");
-                  break;
-              }
-
-              float dstFactor = 1.0f;
-
-              switch(state.pipeline->blend.dstColorBlendFactor)
-              {
-                case VK_BLEND_FACTOR_ZERO: dstFactor = 0.0f; break;
-                case VK_BLEND_FACTOR_ONE: dstFactor = 1.0f; break;
-                case VK_BLEND_FACTOR_SRC_ALPHA: dstFactor = pix.w; break;
-                case VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA: dstFactor = 1.0f - pix.w; break;
-                case VK_BLEND_FACTOR_SRC_COLOR:
-                case VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR:
-                case VK_BLEND_FACTOR_DST_COLOR:
-                case VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR:
-                case VK_BLEND_FACTOR_DST_ALPHA:
-                case VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA:
-                case VK_BLEND_FACTOR_CONSTANT_COLOR:
-                case VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR:
-                case VK_BLEND_FACTOR_CONSTANT_ALPHA:
-                case VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA:
-                case VK_BLEND_FACTOR_SRC_ALPHA_SATURATE:
-                case VK_BLEND_FACTOR_SRC1_COLOR:
-                case VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR:
-                case VK_BLEND_FACTOR_SRC1_ALPHA:
-                case VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA:
-                  printf("Unsupported blend factor\n");
-                  break;
-              }
-
-              float4 blended;
-
-              switch(state.pipeline->blend.colorBlendOp)
-              {
-                case VK_BLEND_OP_ADD:
-                  blended.x = srcFactor * pix.x + dstFactor * existing.x;
-                  blended.y = srcFactor * pix.y + dstFactor * existing.y;
-                  blended.z = srcFactor * pix.z + dstFactor * existing.z;
-                  blended.w = srcFactor * pix.w + dstFactor * existing.w;
-                  break;
-                case VK_BLEND_OP_SUBTRACT:
-                case VK_BLEND_OP_REVERSE_SUBTRACT:
-                case VK_BLEND_OP_MIN:
-                case VK_BLEND_OP_MAX: printf("Unsupported blend op\n"); break;
-              }
-
-              pix = blended;
-            }
-
-            bits[(y * w + x) * bpp + 2] = byte(clamp01(pix.x) * 255.0f);
-            bits[(y * w + x) * bpp + 1] = byte(clamp01(pix.y) * 255.0f);
-            bits[(y * w + x) * bpp + 0] = byte(clamp01(pix.z) * 255.0f);
-
-            depth_passed++;
-
-            if(state.pipeline->depthWriteEnable && depthbits)
-            {
-              depthbits[y * w + x] = pixdepth;
-            }
+            case VK_COMPARE_OP_NEVER: passed = false; break;
+            case VK_COMPARE_OP_LESS: passed = pixdepth < curdepth; break;
+            case VK_COMPARE_OP_EQUAL: passed = pixdepth == curdepth; break;
+            case VK_COMPARE_OP_LESS_OR_EQUAL: passed = pixdepth <= curdepth; break;
+            case VK_COMPARE_OP_GREATER: passed = pixdepth > curdepth; break;
+            case VK_COMPARE_OP_NOT_EQUAL: passed = pixdepth != curdepth; break;
+            case VK_COMPARE_OP_GREATER_OR_EQUAL: passed = pixdepth >= curdepth; break;
           }
-
-          pixels_written++;
         }
 
-        pixels_tested++;
+        if(passed)
+        {
+          // perspective correct with W
+          n.x *= work.invw.x;
+          n.y *= work.invw.y;
+          n.z *= work.invw.z;
+
+          float invlen = 1.0f / (n.x + n.y + n.z);
+          n.x *= invlen;
+          n.y *= invlen;
+          n.z *= invlen;
+
+          float4 pix;
+          state.pipeline->fs(state, pixdepth, n, work.vsout, pix);
+
+          if(state.pipeline->blend.blendEnable)
+          {
+            float4 existing = float4(bits[(y * w + x) * bpp + 2], bits[(y * w + x) * bpp + 1],
+                                     bits[(y * w + x) * bpp + 0], 1.0f);
+            existing.x /= 255.0f;
+            existing.y /= 255.0f;
+            existing.z /= 255.0f;
+
+            float srcFactor = 1.0f;
+
+            switch(state.pipeline->blend.srcColorBlendFactor)
+            {
+              case VK_BLEND_FACTOR_ZERO: srcFactor = 0.0f; break;
+              case VK_BLEND_FACTOR_ONE: srcFactor = 1.0f; break;
+              case VK_BLEND_FACTOR_SRC_ALPHA: srcFactor = pix.w; break;
+              case VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA: srcFactor = 1.0f - pix.w; break;
+              case VK_BLEND_FACTOR_SRC_COLOR:
+              case VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR:
+              case VK_BLEND_FACTOR_DST_COLOR:
+              case VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR:
+              case VK_BLEND_FACTOR_DST_ALPHA:
+              case VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA:
+              case VK_BLEND_FACTOR_CONSTANT_COLOR:
+              case VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR:
+              case VK_BLEND_FACTOR_CONSTANT_ALPHA:
+              case VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA:
+              case VK_BLEND_FACTOR_SRC_ALPHA_SATURATE:
+              case VK_BLEND_FACTOR_SRC1_COLOR:
+              case VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR:
+              case VK_BLEND_FACTOR_SRC1_ALPHA:
+              case VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA:
+                printf("Unsupported blend factor\n");
+                break;
+            }
+
+            float dstFactor = 1.0f;
+
+            switch(state.pipeline->blend.dstColorBlendFactor)
+            {
+              case VK_BLEND_FACTOR_ZERO: dstFactor = 0.0f; break;
+              case VK_BLEND_FACTOR_ONE: dstFactor = 1.0f; break;
+              case VK_BLEND_FACTOR_SRC_ALPHA: dstFactor = pix.w; break;
+              case VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA: dstFactor = 1.0f - pix.w; break;
+              case VK_BLEND_FACTOR_SRC_COLOR:
+              case VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR:
+              case VK_BLEND_FACTOR_DST_COLOR:
+              case VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR:
+              case VK_BLEND_FACTOR_DST_ALPHA:
+              case VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA:
+              case VK_BLEND_FACTOR_CONSTANT_COLOR:
+              case VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR:
+              case VK_BLEND_FACTOR_CONSTANT_ALPHA:
+              case VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA:
+              case VK_BLEND_FACTOR_SRC_ALPHA_SATURATE:
+              case VK_BLEND_FACTOR_SRC1_COLOR:
+              case VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR:
+              case VK_BLEND_FACTOR_SRC1_ALPHA:
+              case VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA:
+                printf("Unsupported blend factor\n");
+                break;
+            }
+
+            float4 blended;
+
+            switch(state.pipeline->blend.colorBlendOp)
+            {
+              case VK_BLEND_OP_ADD:
+                blended.x = srcFactor * pix.x + dstFactor * existing.x;
+                blended.y = srcFactor * pix.y + dstFactor * existing.y;
+                blended.z = srcFactor * pix.z + dstFactor * existing.z;
+                blended.w = srcFactor * pix.w + dstFactor * existing.w;
+                break;
+              case VK_BLEND_OP_SUBTRACT:
+              case VK_BLEND_OP_REVERSE_SUBTRACT:
+              case VK_BLEND_OP_MIN:
+              case VK_BLEND_OP_MAX: printf("Unsupported blend op\n"); break;
+            }
+
+            pix = blended;
+          }
+
+          bits[(y * w + x) * bpp + 2] = byte(clamp01(pix.x) * 255.0f);
+          bits[(y * w + x) * bpp + 1] = byte(clamp01(pix.y) * 255.0f);
+          bits[(y * w + x) * bpp + 0] = byte(clamp01(pix.z) * 255.0f);
+
+          depth_passed++;
+
+          if(state.pipeline->depthWriteEnable && depthbits)
+          {
+            depthbits[y * w + x] = pixdepth;
+          }
+        }
+
+        pixels_written++;
       }
+
+      pixels_tested++;
     }
   }
 
   MICROPROFILE_COUNTER_ADD("rasterizer/pixels/tested", pixels_tested);
   MICROPROFILE_COUNTER_ADD("rasterizer/pixels/written", pixels_written);
   MICROPROFILE_COUNTER_ADD("rasterizer/depth/passed", depth_passed);
-  MICROPROFILE_COUNTER_ADD("rasterizer/triangles/in", tris_in);
-  MICROPROFILE_COUNTER_ADD("rasterizer/triangles/out", tris_out);
-  MICROPROFILE_COUNTER_ADD("rasterizer/draws/in", 1);
 }

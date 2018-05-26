@@ -1,6 +1,7 @@
 #include "precompiled.h"
 
 MICROPROFILE_DECLARE(rasterizer_ShadeVerts);
+MICROPROFILE_DECLARE(rasterizer_ProcessTriangles);
 MICROPROFILE_DECLARE(rasterizer_ToWindow);
 MICROPROFILE_DECLARE(rasterizer_MinMax);
 MICROPROFILE_DECLARE(rasterizer_ClearTarget);
@@ -9,6 +10,7 @@ MICROPROFILE_DECLARE(vkQueueSubmit);
 MICROPROFILE_DECLARE(vkQueuePresentKHR);
 
 MICROPROFILE_DEFINE(rasterizer_ShadeVerts, "rasterizer", "ShadeVerts", MP_KHAKI);
+MICROPROFILE_DEFINE(rasterizer_ProcessTriangles, "rasterizer", "ProcessTriangles", MP_CHOCOLATE);
 MICROPROFILE_DEFINE(rasterizer_ToWindow, "rasterizer", "ToWindow", MP_MAROON);
 MICROPROFILE_DEFINE(rasterizer_MinMax, "rasterizer", "MinMax", MP_FIREBRICK);
 MICROPROFILE_DEFINE(rasterizer_ClearTarget, "rasterizer", "ClearTarget", MP_GAINSBORO);
@@ -22,6 +24,7 @@ void InitFrameStats()
 
 void BeginFrameStats()
 {
+  MICROPROFILE_COUNTER_SET("rasterizer/blocks/processed", 0);
   MICROPROFILE_COUNTER_SET("rasterizer/pixels/tested", 0);
   MICROPROFILE_COUNTER_SET("rasterizer/pixels/written", 0);
   MICROPROFILE_COUNTER_SET("rasterizer/depth/passed", 0);

@@ -126,14 +126,8 @@ static void normalize3(float4 &a)
   return normalize3(a.v);
 }
 
-MICROPROFILE_DEFINE(vkcube_vs, "premade_shaders", "vkcube_vs", MP_BLACK);
-MICROPROFILE_DEFINE(sascha_textoverlay_vs, "premade_shaders", "sascha_textoverlay_vs", MP_BLACK);
-MICROPROFILE_DEFINE(sascha_texture_vs, "premade_shaders", "sascha_texture_vs", MP_BLACK);
-
 void vkcube_vs(const GPUState &state, uint32_t vertexIndex, VertexCacheEntry &out)
 {
-  MICROPROFILE_SCOPE(vkcube_vs);
-
   const VkDescriptorBufferInfo &buf = state.set->binds[0].data.bufferInfo;
   const VkBuffer ubo = buf.buffer;
   VkDeviceSize offs = buf.offset;
@@ -162,36 +156,43 @@ void vkcube_fs(const GPUState &state, float pixdepth, const float4 &bary,
   float u = dot(bary, float4(tri[0].interps[0].x, tri[1].interps[0].x, tri[2].interps[0].x, 0.0f));
   float v = dot(bary, float4(tri[0].interps[0].y, tri[1].interps[0].y, tri[2].interps[0].y, 0.0f));
 
+  // skipping lighting because we don't have derivatives!
+
   VkImage tex = state.set->binds[1].data.imageInfo.imageView->image;
 
   out = sample_tex_wrapped(u, v, tex);
   out.w = 1.0f;
 }
 
-void sascha_textoverlay_vs(const GPUState &state, uint32_t vertexIndex, VertexCacheEntry &out)
+void sascha_uioverlay_vs(const GPUState &state, uint32_t vertexIndex, VertexCacheEntry &out)
 {
-  MICROPROFILE_SCOPE(sascha_textoverlay_vs);
-
   const float *pos = (const float *)(state.vbs[0].buffer->bytes + state.vbs[0].offset);
-  const float *UV = (const float *)(state.vbs[1].buffer->bytes + state.vbs[1].offset);
+  const float *UV = pos + 2;
+  const uint32_t *col = (const uint32_t *)(pos + 4);
 
-  // pos and UV are packed together, the VB is duplicated for some reason
-  UV += 2;
+  pos += 5 * vertexIndex;
+  UV += 5 * vertexIndex;
+  col += 5 * vertexIndex;
 
-  pos += 4 * vertexIndex;
-  UV += 4 * vertexIndex;
+  const float *scale = (const float *)state.pushconsts;
+  const float *translate = scale + 2;
 
-  out.position.x = pos[0];
-  out.position.y = pos[1];
+  out.position.x = pos[0] * scale[0] + translate[0];
+  out.position.y = pos[1] * scale[1] + translate[1];
   out.position.z = 0.0f;
   out.position.w = 1.0f;
 
   out.interps[0].x = UV[0];
   out.interps[0].y = UV[1];
+
+  out.interps[1].x = float((col[0] & 0x000000ff) >> 0x00) / 255.0f;
+  out.interps[1].y = float((col[0] & 0x0000ff00) >> 0x08) / 255.0f;
+  out.interps[1].z = float((col[0] & 0x00ff0000) >> 0x10) / 255.0f;
+  out.interps[1].w = float((col[0] & 0xff000000) >> 0x18) / 255.0f;
 }
 
-void sascha_textoverlay_fs(const GPUState &state, float pixdepth, const float4 &bary,
-                           const VertexCacheEntry tri[3], float4 &out)
+void sascha_uioverlay_fs(const GPUState &state, float pixdepth, const float4 &bary,
+                         const VertexCacheEntry tri[3], float4 &out)
 {
   float u = dot(bary, float4(tri[0].interps[0].x, tri[1].interps[0].x, tri[2].interps[0].x, 0.0f));
   float v = dot(bary, float4(tri[0].interps[0].y, tri[1].interps[0].y, tri[2].interps[0].y, 0.0f));
@@ -199,14 +200,15 @@ void sascha_textoverlay_fs(const GPUState &state, float pixdepth, const float4 &
   VkImage tex = state.set->binds[0].data.imageInfo.imageView->image;
 
   out = sample_tex_wrapped(u, v, tex);
-  out.z = out.y = out.x;
-  out.w = 1.0f;
+
+  out.x *= dot(bary, float4(tri[0].interps[1].x, tri[1].interps[1].x, tri[2].interps[1].x, 0.0f));
+  out.y *= dot(bary, float4(tri[0].interps[1].y, tri[1].interps[1].y, tri[2].interps[1].y, 0.0f));
+  out.z *= dot(bary, float4(tri[0].interps[1].z, tri[1].interps[1].z, tri[2].interps[1].z, 0.0f));
+  out.w *= dot(bary, float4(tri[0].interps[1].w, tri[1].interps[1].w, tri[2].interps[1].w, 0.0f));
 }
 
 void sascha_texture_vs(const GPUState &state, uint32_t vertexIndex, VertexCacheEntry &out)
 {
-  MICROPROFILE_SCOPE(sascha_texture_vs);
-
   const float *inPos = (const float *)(state.vbs[0].buffer->bytes + state.vbs[0].offset);
 
   inPos += 8 * vertexIndex;
@@ -663,12 +665,11 @@ void InitPremadeShaders()
 {
   if(premadeShaderMap.empty())
   {
-    premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(2469737040, (Shader)&vkcube_vs));
-    premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(676538074, (Shader)&vkcube_fs));
+    premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(1381679250, (Shader)&vkcube_vs));
+    premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(843116546, (Shader)&vkcube_fs));
     premadeShaderMap.insert(
-        std::make_pair<uint32_t, Shader>(3142150232, (Shader)&sascha_textoverlay_vs));
-    premadeShaderMap.insert(
-        std::make_pair<uint32_t, Shader>(4293881502, (Shader)&sascha_textoverlay_fs));
+        std::make_pair<uint32_t, Shader>(3338599131, (Shader)&sascha_uioverlay_vs));
+    premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(945681360, (Shader)&sascha_uioverlay_fs));
     premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(3054859395, (Shader)&sascha_texture_vs));
     premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(3971494927, (Shader)&sascha_texture_fs));
 
@@ -691,5 +692,9 @@ void InitPremadeShaders()
 
 Shader GetPremadeShader(uint32_t hash)
 {
+  if(premadeShaderMap.find(hash) == premadeShaderMap.end())
+  {
+    premadeShaderMap[hash]();
+  }
   return premadeShaderMap[hash];
 }

@@ -9,13 +9,14 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateInstance(const VkInstanceCreateInfo *pCre
   set_loader_magic_value(*pInstance);
   InitFrameStats();
   InitPremadeShaders();
-  InitTextureCache();
+  InitRasterThreads();
   return VK_SUCCESS;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkDestroyInstance(VkInstance instance,
                                              const VkAllocationCallbacks *pAllocator)
 {
+  ShutdownRasterThreads();
   ShutdownFrameStats();
   delete(VK_LOADER_DATA *)instance;
 }

@@ -11,7 +11,8 @@
   ICD_FUNC(vkCreateInstance);                       \
   ICD_FUNC(vkDestroyInstance);                      \
   ICD_FUNC(vkEnumeratePhysicalDevices);             \
-  ICD_FUNC(vkCreateDevice);
+  ICD_FUNC(vkCreateDevice);                         \
+  ICD_FUNC(vkEnumerateInstanceVersion);
 
 #define CHECK_PHYS_FUNCS()                             \
   ICD_FUNC(vkGetPhysicalDeviceFeatures);               \
@@ -97,6 +98,17 @@
   ICD_FUNC(vkResetFences);                 \
   ICD_FUNC(vkDeviceWaitIdle);              \
   ICD_FUNC(vkQueueWaitIdle);
+
+VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceVersion(uint32_t *pApiVersion)
+{
+  if(pApiVersion)
+  {
+    *pApiVersion = VK_MAKE_VERSION(1, 0, 0);
+    return VK_SUCCESS;
+  }
+
+  return VK_ERROR_INITIALIZATION_FAILED;
+}
 
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkDevice device, const char *pName)
 {

@@ -98,6 +98,16 @@ VKAPI_ATTR void VKAPI_CALL vkCmdSetScissor(VkCommandBuffer commandBuffer, uint32
   cmd::SetScissors *cmd = commandBuffer->push<cmd::SetScissors>();
 }
 
+VKAPI_ATTR void VKAPI_CALL vkCmdPushConstants(VkCommandBuffer commandBuffer, VkPipelineLayout layout,
+                                              VkShaderStageFlags stageFlags, uint32_t offset,
+                                              uint32_t size, const void *pValues)
+{
+  cmd::PushConstants *cmd = commandBuffer->push<cmd::PushConstants>();
+  cmd->offset = offset;
+  cmd->size = size;
+  memcpy(cmd->values, pValues, size);
+}
+
 VKAPI_ATTR void VKAPI_CALL vkCmdDraw(VkCommandBuffer commandBuffer, uint32_t vertexCount,
                                      uint32_t instanceCount, uint32_t firstVertex,
                                      uint32_t firstInstance)

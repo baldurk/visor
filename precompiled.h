@@ -37,6 +37,7 @@ enum class Command : uint16_t
   BindIB,
   SetViewport,
   SetScissors,
+  PushConstants,
   Draw,
   DrawIndexed,
   CopyBuf2Img,

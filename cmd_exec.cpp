@@ -119,6 +119,13 @@ void VkCommandBuffer_T::execute() const
         (void)data;
         break;
       }
+      case Command::PushConstants:
+      {
+        const cmd::PushConstants &data = pull<cmd::PushConstants>(&cur);
+
+        memcpy(state.pushconsts + data.offset, data.values, data.size);
+        break;
+      }
       case Command::Draw:
       {
         const cmd::Draw &data = pull<cmd::Draw>(&cur);

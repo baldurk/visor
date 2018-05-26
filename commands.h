@@ -59,6 +59,13 @@ struct SetScissors
   static const Command CommandID = Command::SetScissors;
 };
 
+struct PushConstants
+{
+  static const Command CommandID = Command::PushConstants;
+  uint32_t offset, size;
+  byte values[128];
+};
+
 struct Draw
 {
   static const Command CommandID = Command::Draw;

@@ -89,6 +89,7 @@
   ICD_FUNC(vkCmdBindDescriptorSets);       \
   ICD_FUNC(vkCmdSetViewport);              \
   ICD_FUNC(vkCmdSetScissor);               \
+  ICD_FUNC(vkCmdPushConstants);            \
   ICD_FUNC(vkCmdDraw);                     \
   ICD_FUNC(vkCmdDrawIndexed);              \
   ICD_FUNC(vkCmdCopyBufferToImage);        \

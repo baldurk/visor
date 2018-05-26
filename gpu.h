@@ -18,6 +18,7 @@ struct GPUState
   VkImage depth;
   VkPipeline pipeline;
   VkDescriptorSet set;
+  byte pushconsts[128];
 };
 
 struct int4

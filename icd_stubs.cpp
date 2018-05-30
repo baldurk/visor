@@ -1,5 +1,6 @@
 #include "precompiled.h"
 #include "gpu.h"
+#include "spirv_compile.h"
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateInstance(const VkInstanceCreateInfo *pCreateInfo,
                                                 const VkAllocationCallbacks *pAllocator,
@@ -10,6 +11,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateInstance(const VkInstanceCreateInfo *pCre
   InitFrameStats();
   InitPremadeShaders();
   InitRasterThreads();
+  InitLLVM();
   return VK_SUCCESS;
 }
 

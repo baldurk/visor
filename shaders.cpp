@@ -1,4 +1,5 @@
 #include "precompiled.h"
+#include "spirv_compile.h"
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateShaderModule(VkDevice device,
                                                     const VkShaderModuleCreateInfo *pCreateInfo,
@@ -13,8 +14,10 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateShaderModule(VkDevice device,
 
   if(ret->func == NULL)
   {
-    printf("Unrecognised/hacked shader! whoops!");
-    return VK_ERROR_DEVICE_LOST;
+    ret->handle = CompileFunction(pCreateInfo->pCode, pCreateInfo->codeSize / sizeof(uint32_t));
+
+    if(ret->handle == NULL)
+      return VK_ERROR_DEVICE_LOST;
   }
 
   *pShaderModule = ret;
@@ -24,6 +27,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateShaderModule(VkDevice device,
 VKAPI_ATTR void VKAPI_CALL vkDestroyShaderModule(VkDevice device, VkShaderModule shaderModule,
                                                  const VkAllocationCallbacks *pAllocator)
 {
+  DestroyFunction(shaderModule->handle);
   delete shaderModule;
 }
 
@@ -57,10 +61,21 @@ vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32
 
     for(uint32_t s = 0; s < pCreateInfos[i].stageCount; s++)
     {
+      VkShaderModule mod = pCreateInfos[i].pStages[s].module;
       if(pCreateInfos[i].pStages[s].stage == VK_SHADER_STAGE_VERTEX_BIT)
-        ret->vs = (VertexShader)pCreateInfos[i].pStages[s].module->func;
+      {
+        if(mod->func)
+          ret->vs = (VertexShader)mod->func;
+        else
+          ret->vs = (VertexShader)GetFuncPointer(mod->handle, pCreateInfos[i].pStages[s].pName);
+      }
       else if(pCreateInfos[i].pStages[s].stage == VK_SHADER_STAGE_FRAGMENT_BIT)
-        ret->fs = (FragmentShader)pCreateInfos[i].pStages[s].module->func;
+      {
+        if(mod->func)
+          ret->fs = (FragmentShader)mod->func;
+        else
+          ret->fs = (FragmentShader)GetFuncPointer(mod->handle, pCreateInfos[i].pStages[s].pName);
+      }
     }
     pPipelines[i] = ret;
   }

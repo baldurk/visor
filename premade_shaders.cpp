@@ -665,7 +665,7 @@ void InitPremadeShaders()
 {
   if(premadeShaderMap.empty())
   {
-    premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(1381679250, (Shader)&vkcube_vs));
+    // premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(1381679250, (Shader)&vkcube_vs));
     premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(843116546, (Shader)&vkcube_fs));
     premadeShaderMap.insert(
         std::make_pair<uint32_t, Shader>(3338599131, (Shader)&sascha_uioverlay_vs));
@@ -692,9 +692,5 @@ void InitPremadeShaders()
 
 Shader GetPremadeShader(uint32_t hash)
 {
-  if(premadeShaderMap.find(hash) == premadeShaderMap.end())
-  {
-    premadeShaderMap[hash]();
-  }
   return premadeShaderMap[hash];
 }

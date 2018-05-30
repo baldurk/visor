@@ -58,7 +58,8 @@ VKAPI_ATTR VkResult VKAPI_CALL vkAllocateDescriptorSets(VkDevice device,
   for(uint32_t i = 0; i < pAllocateInfo->descriptorSetCount; i++)
   {
     pDescriptorSets[0] = new VkDescriptorSet_T;
-    pDescriptorSets[0]->binds.resize(pAllocateInfo->pSetLayouts[i]->bindingCount);
+    pDescriptorSets[0]->binds =
+        new VkDescriptorSet_T::Bind[pAllocateInfo->pSetLayouts[i]->bindingCount];
   }
   return VK_SUCCESS;
 }
@@ -68,7 +69,10 @@ VKAPI_ATTR VkResult VKAPI_CALL vkFreeDescriptorSets(VkDevice device, VkDescripto
                                                     const VkDescriptorSet *pDescriptorSets)
 {
   for(uint32_t i = 0; i < descriptorSetCount; i++)
+  {
+    delete[] pDescriptorSets[i]->binds;
     delete pDescriptorSets[i];
+  }
   return VK_SUCCESS;
 }
 

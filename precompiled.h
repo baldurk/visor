@@ -46,6 +46,7 @@ enum class Command : uint16_t
 
 struct GPUState;
 struct VertexCacheEntry;
+struct LLVMFunction;
 struct float4;
 
 typedef void (*Shader)();
@@ -113,6 +114,7 @@ struct VkBuffer_T
 struct VkShaderModule_T
 {
   Shader func = NULL;
+  LLVMFunction *handle = NULL;
 };
 
 struct VkPipeline_T
@@ -147,7 +149,7 @@ struct VkDescriptorSet_T
     } data;
   };
 
-  std::vector<Bind> binds;
+  Bind *binds;
 };
 
 struct VkRenderPass_T

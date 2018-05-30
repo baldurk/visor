@@ -25,6 +25,7 @@
     <ClCompile Include="3rdparty\decompress.c">
       <Filter>3rdparty\decompress</Filter>
     </ClCompile>
+    <ClCompile Include="spirv_compile.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="precompiled.h" />
@@ -47,6 +48,10 @@
     <ClInclude Include="gpu.h" />
     <ClInclude Include="stats.h" />
     <ClInclude Include="3rdparty\decompress.h" />
+    <ClInclude Include="spirv_compile.h" />
+    <ClInclude Include="3rdparty\spirv.hpp">
+      <Filter>3rdparty\vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="visor.json" />

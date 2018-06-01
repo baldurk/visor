@@ -133,7 +133,8 @@ float4 &CacheCoord(VkImage tex, VkDeviceSize byteOffs, int x, int y)
   return tcache->pixels[y & 0x3][x & 0x3];
 }
 
-float4 sample_tex_wrapped(float u, float v, VkImage tex, VkDeviceSize byteOffs)
+extern "C" __declspec(dllexport) void sample_tex_wrapped(float u, float v, VkImage tex,
+                                                         VkDeviceSize byteOffs, float4 &out)
 {
   u = fmodf(u, 1.0f);
   v = fmodf(v, 1.0f);
@@ -173,16 +174,14 @@ float4 sample_tex_wrapped(float u, float v, VkImage tex, VkDeviceSize byteOffs)
   bottom.z = BL.z * inv_fu + BR.z * fu;
   bottom.w = BL.w * inv_fu + BR.w * fu;
 
-  float4 color;
-  color.x = top.x * inv_fv + bottom.x * fv;
-  color.y = top.y * inv_fv + bottom.y * fv;
-  color.z = top.z * inv_fv + bottom.z * fv;
-  color.w = top.w * inv_fv + bottom.w * fv;
-
-  return color;
+  out.x = top.x * inv_fv + bottom.x * fv;
+  out.y = top.y * inv_fv + bottom.y * fv;
+  out.z = top.z * inv_fv + bottom.z * fv;
+  out.w = top.w * inv_fv + bottom.w * fv;
 }
 
-float4 sample_cube_wrapped(float x, float y, float z, VkImage tex)
+extern "C" __declspec(dllexport) void sample_cube_wrapped(float x, float y, float z, VkImage tex,
+                                                          float4 &out)
 {
   float ax = abs(x);
   float ay = abs(y);
@@ -244,5 +243,5 @@ float4 sample_cube_wrapped(float x, float y, float z, VkImage tex)
     offset = CalcSubresourceByteOffset(tex, 0, 5);
   }
 
-  return sample_tex_wrapped(0.5f * (u / axis + 1.0f), 0.5f * (v / axis + 1.0f), tex, offset);
+  sample_tex_wrapped(0.5f * (u / axis + 1.0f), 0.5f * (v / axis + 1.0f), tex, offset, out);
 }

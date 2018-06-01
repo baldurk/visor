@@ -52,6 +52,9 @@
     <ClInclude Include="3rdparty\spirv.hpp">
       <Filter>3rdparty\vulkan</Filter>
     </ClInclude>
+    <ClInclude Include="3rdparty\GLSL.std.450.h">
+      <Filter>3rdparty\vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="visor.json" />

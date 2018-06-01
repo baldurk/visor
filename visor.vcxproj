@@ -194,6 +194,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="3rdparty\decompress.h" />
+    <ClInclude Include="3rdparty\GLSL.std.450.h" />
     <ClInclude Include="3rdparty\microprofile.h" />
     <ClInclude Include="3rdparty\microprofile_html.h" />
     <ClInclude Include="3rdparty\spirv.hpp" />

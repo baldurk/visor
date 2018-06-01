@@ -1,6 +1,7 @@
 #include "precompiled.h"
 #include "spirv_compile.h"
 #include <set>
+#include "3rdparty/GLSL.std.450.h"
 #include "3rdparty/spirv.hpp"
 #include "gpu.h"
 
@@ -112,6 +113,45 @@ static void DeclareGlobalFunctions(llvm::Module *m)
                                      },
                                      false),
                    GlobalValue::ExternalLinkage, "GetDescriptorBufferPointer", m);
+
+  Function::Create(FunctionType::get(t_VkImage,
+                                     {
+                                         t_GPUStateRef, Type::getInt32Ty(c), Type::getInt32Ty(c),
+                                     },
+                                     false),
+                   GlobalValue::ExternalLinkage, "GetDescriptorImage", m);
+
+  Function::Create(FunctionType::get(Type::getVoidTy(c),
+                                     {
+                                         // float u
+                                         Type::getFloatTy(c),
+                                         // float v
+                                         Type::getFloatTy(c),
+                                         // VkImage tex
+                                         t_VkImage,
+                                         // VkDeviceSize byteOffs
+                                         Type::getInt64Ty(c),
+                                         // float4 &out
+                                         PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                                     },
+                                     false),
+                   GlobalValue::ExternalLinkage, "sample_tex_wrapped", m);
+
+  Function::Create(FunctionType::get(Type::getVoidTy(c),
+                                     {
+                                         // float x
+                                         Type::getFloatTy(c),
+                                         // float y
+                                         Type::getFloatTy(c),
+                                         // float z
+                                         Type::getFloatTy(c),
+                                         // VkImage tex
+                                         t_VkImage,
+                                         // float4 &out
+                                         PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                                     },
+                                     false),
+                   GlobalValue::ExternalLinkage, "sample_cube_wrapped", m);
 }
 
 void InitLLVM()
@@ -171,7 +211,7 @@ void InitLLVM()
                                            // const float4 &bary
                                            PointerType::get(t_float4, 0),
                                            // const VertexCacheEntry tri[3]
-                                           ArrayType::get(t_VertexCacheEntry, 3),
+                                           PointerType::get(t_VertexCacheEntry, 0),
                                            // float4 &out
                                            PointerType::get(t_float4, 0),
                                        },
@@ -275,6 +315,29 @@ extern "C" __declspec(dllexport) byte *GetDescriptorBufferPointer(const GPUState
   return buf.buffer->bytes + buf.offset;
 }
 
+extern "C" __declspec(dllexport) VkImage
+    GetDescriptorImage(const GPUState &state, uint32_t set, uint32_t bind)
+{
+  assert(set == 0);
+  return state.set->binds[bind].data.imageInfo.imageView->image;
+}
+
+llvm::Value *CreateDot(llvm::IRBuilder<> &builder, llvm::Value *a, llvm::Value *b, int numcomps)
+{
+  llvm::Value *accum = builder.CreateFMul(builder.CreateExtractElement(a, 0LLU),
+                                          builder.CreateExtractElement(b, 0LLU));
+  if(numcomps > 1)
+    accum = builder.CreateFAdd(accum, builder.CreateFMul(builder.CreateExtractElement(a, 1LLU),
+                                                         builder.CreateExtractElement(b, 1LLU)));
+  if(numcomps > 2)
+    accum = builder.CreateFAdd(accum, builder.CreateFMul(builder.CreateExtractElement(a, 2LLU),
+                                                         builder.CreateExtractElement(b, 2LLU)));
+  if(numcomps > 3)
+    accum = builder.CreateFAdd(accum, builder.CreateFMul(builder.CreateExtractElement(a, 3LLU),
+                                                         builder.CreateExtractElement(b, 3LLU)));
+  return accum;
+}
+
 LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
 {
   using namespace llvm;
@@ -326,6 +389,8 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
   std::vector<Value *> values;
   std::vector<Type *> types;
   std::map<uint32_t, std::string> names;
+
+  uint32_t GLSLstd450_instset = 0;
 
   values.resize(idbound);
   types.resize(idbound);
@@ -392,6 +457,12 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
       // Globals/declarations/decorations
       ////////////////////////////////////////////////
 
+      case spv::OpExtInstImport:
+      {
+        GLSLstd450_instset = pCode[1];
+        assert(!strcmp((char *)(pCode + 2), "GLSL.std.450"));
+        break;
+      }
       case spv::OpEntryPoint:
       {
         // we'll do this in a final pass once we have the function resolved
@@ -811,29 +882,100 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         break;
       }
       case spv::OpDPdx:
+      {
+        // TODO
+        values[pCode[2]] = builder.CreateShuffleVector(values[pCode[3]], values[pCode[3]], {2, 3, 0});
+        break;
+      }
       case spv::OpDPdy:
       {
         // TODO
-        values[pCode[2]] = Constant::getNullValue(types[pCode[1]]);
+        values[pCode[2]] = builder.CreateShuffleVector(values[pCode[3]], values[pCode[3]], {1, 3, 2});
         break;
       }
+
+#define ARG(n) (values[pCode[5 + n]])
+
       case spv::OpExtInst:
       {
-        // TODO
-        values[pCode[2]] = values[pCode[5]];
+        assert(pCode[3] == GLSLstd450_instset);
+
+        GLSLstd450 inst = (GLSLstd450)pCode[4];
+
+        switch(inst)
+        {
+          case GLSLstd450FMax:
+          case GLSLstd450FMin:
+          {
+            assert(WordCount == 7);
+            Value *a = ARG(0);
+            Value *b = ARG(1);
+            values[pCode[2]] = builder.CreateSelect(
+                inst == GLSLstd450FMin ? builder.CreateFCmpOLT(a, b) : builder.CreateFCmpOGT(a, b),
+                a, b);
+            break;
+          }
+          case GLSLstd450Normalize:
+          {
+            assert(WordCount == 6);
+            Value *a = ARG(0);
+            Value *sqrlen = CreateDot(builder, a, a, a->getType()->getVectorNumElements());
+            Value *sqrt = Intrinsic::getDeclaration(m, Intrinsic::sqrt, {Type::getFloatTy(c)});
+            Value *len = builder.CreateCall(sqrt, {sqrlen});
+            Value *invlen = builder.CreateVectorSplat(
+                a->getType()->getVectorNumElements(),
+                builder.CreateFDiv(ConstantFP::get(Type::getFloatTy(c), 1.0), len));
+            values[pCode[2]] = builder.CreateFMul(a, invlen);
+            break;
+          }
+          case GLSLstd450Cross:
+          {
+            assert(WordCount == 7);
+            // TODO
+            values[pCode[2]] = ARG(0);
+            break;
+          }
+          default:
+          {
+            values[pCode[2]] = UndefValue::get(types[pCode[1]]);
+            assert(false && "Unhandled GLSL extended instruction");
+            break;
+          }
+        }
+
         break;
       }
+
+#undef ARG
+
       case spv::OpDot:
       {
-        // TODO
-        values[pCode[2]] = builder.CreateFAdd(values[pCode[3]], values[pCode[4]]);
+        values[pCode[2]] = CreateDot(builder, values[pCode[3]], values[pCode[4]],
+                                     values[pCode[3]]->getType()->getVectorNumElements());
         break;
       }
       case spv::OpImageSampleImplicitLod:
       {
-        // TODO
-        values[pCode[2]] =
-            builder.CreateShuffleVector(values[pCode[4]], values[pCode[4]], {0, 1, 0, 1});
+        Value *retptr = builder.CreateAlloca(types[pCode[1]]);
+
+        // call function
+        builder.CreateCall(m->getFunction("sample_tex_wrapped"),
+                           {
+                               // u
+                               builder.CreateExtractElement(values[pCode[4]], 0ULL),
+                               // v
+                               builder.CreateExtractElement(values[pCode[4]], 1ULL),
+                               // tex
+                               values[pCode[3]],
+                               // byteOffset
+                               ConstantInt::get(Type::getInt64Ty(c), 0),
+                               // out
+                               retptr,
+                           });
+
+        // load return value
+        values[pCode[2]] = builder.CreateLoad(retptr);
+
         break;
       }
       case spv::OpReturn:
@@ -1007,13 +1149,124 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
 
       globalStruct = builder.CreateAlloca(globalStructType, 0, NULL, "Globals");
 
-      // TODO interpolate inputs
+      Argument *gpustate = exportedEntry->arg_begin();
+      Argument *pixdepth = gpustate + 1;
+      Argument *bary = pixdepth + 1;
+      Argument *tri = bary + 1;
+      Argument *out = tri + 1;
 
-      // TODO populate globals from descriptor sets
+      Value *loadedBary = builder.CreateLoad(bary);
+
+      for(const ExternalBinding &ext : externals)
+      {
+        if(ext.storageClass == spv::StorageClassOutput)
+          continue;
+
+        uint32_t id = ext.decoration.id;
+
+        Value *val = getvalue(ext.value);
+
+        if(ext.decoration.dec == spv::DecorationBuiltIn)
+        {
+          spv::BuiltIn b = (spv::BuiltIn)ext.decoration.param;
+          {
+            printf("Unsupported buitin input");
+            assert(false);
+          }
+        }
+        else if(ext.decoration.dec == spv::DecorationLocation)
+        {
+          Type *vecType = val->getType()->getPointerElementType();
+          Value *interp = UndefValue::get(vecType);
+
+          uint32_t loc = ext.decoration.param;
+
+          // load the vectors we're interpolating between
+          Value *vertVec[3];
+          for(unsigned comp = 0; comp < 3; comp++)
+          {
+            vertVec[comp] = builder.CreateLoad(
+                builder.CreateInBoundsGEP(tri, {
+                                                   // tri[comp]
+                                                   ConstantInt::get(Type::getInt32Ty(c), comp),
+                                                   // .interps
+                                                   ConstantInt::get(Type::getInt32Ty(c), 1),
+                                                   // [loc]
+                                                   ConstantInt::get(Type::getInt32Ty(c), loc),
+                                               }));
+          }
+
+          // for each component, dot() the barycentric co-ords with the component from each
+          // verts'
+          // vector
+          for(unsigned i = 0; i < vecType->getVectorNumElements(); i++)
+          {
+            Value *compValue = Constant::getNullValue(VectorType::get(Type::getFloatTy(c), 4));
+
+            for(unsigned comp = 0; comp < 3; comp++)
+            {
+              compValue = builder.CreateInsertElement(compValue,
+                                                      builder.CreateExtractElement(vertVec[comp], i),
+                                                      ConstantInt::get(Type::getInt32Ty(c), comp));
+            }
+
+            Value *interpComp = CreateDot(builder, loadedBary, compValue, 4);
+            interp = builder.CreateInsertElement(interp, interpComp,
+                                                 ConstantInt::get(Type::getInt32Ty(c), i));
+          }
+
+          builder.CreateStore(interp, val);
+        }
+        else if(ext.decoration.dec == spv::DecorationDescriptorSet)
+        {
+          descset[id] = ext.decoration.param;
+        }
+        else if(ext.decoration.dec == spv::DecorationBinding)
+        {
+          Function *getfunc = m->getFunction("GetDescriptorImage");
+
+          Value *imgptr = builder.CreateCall(
+              getfunc, {
+                           gpustate, ConstantInt::get(Type::getInt32Ty(c), descset[id]),
+                           ConstantInt::get(Type::getInt32Ty(c), ext.decoration.param),
+                       });
+
+          builder.CreateStore(imgptr, val);
+        }
+      }
 
       builder.CreateCall(f, {globalStruct});
 
-      // TODO fetch outputs
+      for(const ExternalBinding &ext : externals)
+      {
+        if(ext.storageClass != spv::StorageClassOutput)
+          continue;
+
+        uint32_t id = ext.decoration.id;
+
+        Value *val = getvalue(ext.value);
+        if(ext.decoration.member == ~0U)
+        {
+          val = builder.CreateLoad(val);
+        }
+        else
+        {
+          val = builder.CreateLoad(builder.CreateConstInBoundsGEP2_32(
+              val->getType()->getPointerElementType(), val, 0, ext.decoration.member));
+        }
+
+        if(ext.decoration.dec == spv::DecorationLocation)
+        {
+          assert(ext.decoration.param == 0);
+
+          builder.CreateStore(val, out);
+        }
+        else if(ext.decoration.dec == spv::DecorationBuiltIn)
+        {
+          printf("Unsupported builtin output");
+          assert(false);
+        }
+      }
 
       builder.CreateRetVoid();
 

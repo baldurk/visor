@@ -21,7 +21,7 @@ struct GPUState
   byte pushconsts[128];
 };
 
-struct int4
+__declspec(align(16)) struct int4
 {
   int4() {}
   int4(int X, int Y, int Z, int W) : x(X), y(Y), z(Z), w(W) {}
@@ -35,7 +35,7 @@ struct int4
   };
 };
 
-struct float4
+__declspec(align(16)) struct float4
 {
   float4() {}
   float4(float X, float Y, float Z, float W) : x(X), y(Y), z(Z), w(W) {}
@@ -60,8 +60,10 @@ void ClearTarget(VkImage target, const VkClearDepthStencilValue &col);
 void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool indexed);
 
 void InitTextureCache();
-float4 sample_tex_wrapped(float u, float v, VkImage tex, VkDeviceSize byteOffs = 0);
-float4 sample_cube_wrapped(float x, float y, float z, VkImage tex);
+extern "C" __declspec(dllexport) void sample_tex_wrapped(float u, float v, VkImage tex,
+                                                         VkDeviceSize byteOffs, float4 &out);
+extern "C" __declspec(dllexport) void sample_cube_wrapped(float x, float y, float z, VkImage tex,
+                                                          float4 &out);
 
 void InitRasterThreads();
 void ShutdownRasterThreads();

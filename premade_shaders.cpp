@@ -160,7 +160,7 @@ void vkcube_fs(const GPUState &state, float pixdepth, const float4 &bary,
 
   VkImage tex = state.set->binds[1].data.imageInfo.imageView->image;
 
-  out = sample_tex_wrapped(u, v, tex);
+  sample_tex_wrapped(u, v, tex, 0, out);
   out.w = 1.0f;
 }
 
@@ -199,7 +199,7 @@ void sascha_uioverlay_fs(const GPUState &state, float pixdepth, const float4 &ba
 
   VkImage tex = state.set->binds[0].data.imageInfo.imageView->image;
 
-  out = sample_tex_wrapped(u, v, tex);
+  sample_tex_wrapped(u, v, tex, 0, out);
 
   out.x *= dot(bary, float4(tri[0].interps[1].x, tri[1].interps[1].x, tri[2].interps[1].x, 0.0f));
   out.y *= dot(bary, float4(tri[0].interps[1].y, tri[1].interps[1].y, tri[2].interps[1].y, 0.0f));
@@ -295,7 +295,8 @@ void sascha_texture_fs(const GPUState &state, float pixdepth, const float4 &bary
   float v = dot(bary, float4(tri[0].interps[0].y, tri[1].interps[0].y, tri[2].interps[0].y, 0.0f));
 
   // vec4 color = texture(samplerColor, inUV, inLodBias);
-  float4 color = sample_tex_wrapped(u, v, tex);
+  float4 color;
+  sample_tex_wrapped(u, v, tex, 0, color);
 
   // vec3 N = normalize(inNormal);
   float4 N;
@@ -656,7 +657,7 @@ void sascha_vulkanscene_skybox_fs(const GPUState &state, float pixdepth, const f
   float v = dot(bary, float4(tri[0].interps[0].y, tri[1].interps[0].y, tri[2].interps[0].y, 0.0f));
   float w = dot(bary, float4(tri[0].interps[0].z, tri[1].interps[0].z, tri[2].interps[0].z, 0.0f));
 
-  out = sample_cube_wrapped(u, v, w, tex);
+  sample_cube_wrapped(u, v, w, tex, out);
 }
 
 static std::map<uint32_t, Shader> premadeShaderMap;
@@ -666,7 +667,7 @@ void InitPremadeShaders()
   if(premadeShaderMap.empty())
   {
     // premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(1381679250, (Shader)&vkcube_vs));
-    premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(843116546, (Shader)&vkcube_fs));
+    // premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(843116546, (Shader)&vkcube_fs));
     premadeShaderMap.insert(
         std::make_pair<uint32_t, Shader>(3338599131, (Shader)&sascha_uioverlay_vs));
     premadeShaderMap.insert(std::make_pair<uint32_t, Shader>(945681360, (Shader)&sascha_uioverlay_fs));

@@ -1,7 +1,7 @@
 {
    "file_format_version": "1.0.0",
    "ICD": {
-      "library_path": ".\\x64\\Debug\\visor.dll",
+      "library_path": ".\\x64\\Development\\visor.dll",
       "api_version": "1.0.47"
    }
 }

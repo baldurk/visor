@@ -33,7 +33,6 @@
 #pragma warning(pop)
 
 typedef llvm::orc::RTDyldObjectLinkingLayer Linker;
-typedef llvm::orc::IRCompileLayer<Linker, llvm::orc::SimpleCompiler> Compiler;
 
 namespace
 {
@@ -42,21 +41,10 @@ llvm::SectionMemoryManager memManager;
 
 llvm::TargetMachine *target = NULL;
 
-Linker *linker = NULL;
-Compiler *compiler = NULL;
+Linker *globallinker = NULL;
+llvm::orc::SimpleCompiler *compiler = NULL;
 
-auto symbolResolver = llvm::orc::createLambdaResolver(
-    [](const std::string &name) {
-      // foo
-      return compiler->findSymbol(name, false);
-    },
-    [](const std::string &name) {
-      uint64_t sym_addr = llvm::RTDyldMemoryManager::getSymbolAddressInProcess(name);
-      if(sym_addr)
-        return llvm::JITSymbol(sym_addr, llvm::JITSymbolFlags::Exported);
-
-      return llvm::JITSymbol(NULL);
-    });
+llvm::Module *globalFunctions = NULL;
 
 llvm::Type *t_VkImage = NULL;
 llvm::Type *t_VkBuffer = NULL;
@@ -72,14 +60,58 @@ llvm::Type *t_FragmentShader = NULL;
 
 struct LLVMFunction
 {
-  ~LLVMFunction() { delete module; }
+  ~LLVMFunction()
+  {
+    delete linker;
+    delete module;
+  }
+  Linker *linker = NULL;
   llvm::Module *module = NULL;
   std::string ir, optir;
 };
 
-void llvm_fatal(void *user_data, const std::string &reason, bool gen_crash_diag)
+static void llvm_fatal(void *user_data, const std::string &reason, bool gen_crash_diag)
 {
   assert(false);
+}
+
+static Linker *makeLinker()
+{
+  return new Linker([] {
+    return std::shared_ptr<llvm::SectionMemoryManager>(&memManager,
+                                                       [](llvm::SectionMemoryManager *) {});
+  });
+}
+
+static void DeclareGlobalFunctions(llvm::Module *m)
+{
+  using namespace llvm;
+
+  LLVMContext &c = *context;
+
+  // LLVM implemented functions in globalFunctions
+
+  Function::Create(
+      FunctionType::get(Type::getVoidTy(c),
+                        {
+                            // float4 mat[4],
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                            // float4 vec,
+                            VectorType::get(Type::getFloatTy(c), 4),
+                            // float4 &result,
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                        },
+                        false),
+      GlobalValue::ExternalLinkage, "Float4x4TimesVec4", m);
+
+  // C implemented and exported functions
+
+  Function::Create(FunctionType::get(PointerType::get(Type::getInt8Ty(c), 0),
+                                     {
+                                         t_GPUStateRef, Type::getInt32Ty(c), Type::getInt32Ty(c),
+                                     },
+                                     false),
+                   GlobalValue::ExternalLinkage, "GetDescriptorBufferPointer", m);
 }
 
 void InitLLVM()
@@ -94,10 +126,8 @@ void InitLLVM()
   context = new LLVMContext();
 
   target = EngineBuilder().selectTarget();
-  linker = new Linker([] {
-    return std::shared_ptr<llvm::SectionMemoryManager>(&memManager, [](SectionMemoryManager *) {});
-  });
-  compiler = new Compiler(*linker, orc::SimpleCompiler(*target));
+  globallinker = makeLinker();
+  compiler = new llvm::orc::SimpleCompiler(*target);
 
   std::string str;
   sys::DynamicLibrary::LoadLibraryPermanently(NULL, &str);
@@ -146,26 +176,94 @@ void InitLLVM()
                                            PointerType::get(t_float4, 0),
                                        },
                                        false);
+
+  globalFunctions = new llvm::Module("globalFunctions", c);
+
+  DeclareGlobalFunctions(globalFunctions);
+
+  IRBuilder<> builder(c, ConstantFolder());
+
+  std::vector<Function *> functions;
+
+  // we could define library functions in LLVM here instead of C to allow it to inline/optimise
+
+  {
+    std::string str;
+    raw_string_ostream os(str);
+
+    if(verifyModule(*globalFunctions, &os))
+    {
+      printf("Global Module did not verify: %s\n", os.str().c_str());
+      assert(false);
+    }
+  }
+
+  {
+    std::string str;
+    raw_string_ostream os(str);
+
+    globalFunctions->print(os, NULL);
+  }
+
+  PassManagerBuilder pm_builder;
+  pm_builder.OptLevel = 3;
+  pm_builder.SizeLevel = 0;
+  pm_builder.LoopVectorize = true;
+  pm_builder.SLPVectorize = true;
+
+  legacy::FunctionPassManager function_pm(globalFunctions);
+  legacy::PassManager module_pm;
+
+  pm_builder.populateFunctionPassManager(function_pm);
+  pm_builder.populateModulePassManager(module_pm);
+
+  function_pm.doInitialization();
+  for(Function *f : functions)
+    function_pm.run(*f);
+  module_pm.run(*globalFunctions);
+
+  {
+    std::string str;
+    raw_string_ostream os(str);
+
+    globalFunctions->print(os, NULL);
+  }
+
+  globalFunctions->setDataLayout(target->createDataLayout());
+
+  auto symbolResolver = llvm::orc::createLambdaResolver(
+      [](const std::string &name) { return globallinker->findSymbol(name, false); },
+      [](const std::string &name) {
+        uint64_t sym_addr = RTDyldMemoryManager::getSymbolAddressInProcess(name);
+        if(sym_addr)
+          return JITSymbol(sym_addr, JITSymbolFlags::Exported);
+
+        return JITSymbol(NULL);
+      });
+
+  orc::SimpleCompiler &comp = *compiler;
+
+  globallinker->addObject(
+      std::make_shared<orc::SimpleCompiler::CompileResult>(comp(*globalFunctions)), symbolResolver);
 }
 
 void ShutdownLLVM()
 {
+  delete globalFunctions;
   delete compiler;
-  delete linker;
+  delete globallinker;
   delete target;
   delete context;
 }
 
-extern "C" __declspec(dllexport) void Float4x4TimesVec4(float4 mat[4], float4 vec, float4 &out)
+extern "C" __declspec(dllexport) void Float4x4TimesVec4(float4 mat[4], const float4 &vec, float4 &out)
 {
-  out = float4(0, 0, 0, 0);
+  out = {0, 0, 0, 0};
 
   float *fmat = (float *)mat;
   for(int row = 0; row < 4; row++)
-  {
     for(int col = 0; col < 4; col++)
       out.v[row] += fmat[col * 4 + row] * vec.v[col];
-  }
 }
 
 extern "C" __declspec(dllexport) byte *GetDescriptorBufferPointer(const GPUState &state,
@@ -197,29 +295,11 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
   sprintf_s(uniq_name, "visormodule_%p", ret);
 
   ret->module = new Module(uniq_name, c);
+  ret->linker = makeLinker();
 
-  IntegerType *i32 = Type::getInt32Ty(c);
+  Module *m = ret->module;
 
-  Function *Float4x4TimesVec4 = Function::Create(
-      FunctionType::get(Type::getVoidTy(c),
-                        {
-                            // float4 mat[4],
-                            PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
-                            // float4 vec,
-                            VectorType::get(Type::getFloatTy(c), 4),
-                            // float4 &result,
-                            PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
-                        },
-                        false),
-      llvm::GlobalValue::ExternalLinkage, "Float4x4TimesVec4", ret->module);
-
-  Function *GetDescriptorBufferPointer = Function::Create(
-      FunctionType::get(PointerType::get(Type::getInt8Ty(c), 0),
-                        {
-                            t_GPUStateRef, Type::getInt32Ty(c), Type::getInt32Ty(c),
-                        },
-                        false),
-      llvm::GlobalValue::ExternalLinkage, "GetDescriptorBufferPointer", ret->module);
+  DeclareGlobalFunctions(m);
 
   std::vector<Function *> functions;
   Function *function = NULL;
@@ -233,18 +313,22 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
     uint32_t id;
     spv::Decoration dec;
     uint32_t param;
+    uint32_t member;
+
+    bool operator<(const IDDecoration &o) const { return id < o.id; }
   };
   std::vector<IDDecoration> decorations;
-  std::set<uint32_t> inputs, outputs;
+  std::set<uint32_t> blocks;
+
+  // in lieu of a proper SPIR-V representation, this lets us go from pointer type -> struct type
+  std::map<uint32_t, uint32_t> ptrtypes;
 
   std::vector<Value *> values;
-  values.resize(idbound);
-
   std::vector<Type *> types;
-  types.resize(idbound);
+  std::map<uint32_t, std::string> names;
 
-  std::vector<std::string> names;
-  names.resize(idbound);
+  values.resize(idbound);
+  types.resize(idbound);
 
   auto getname = [&names](uint32_t id) -> std::string {
     std::string name = names[id];
@@ -253,9 +337,40 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
     return name;
   };
 
-  size_t it = 5;
-  pCode += it;
-  while(it < codeSize)
+  std::vector<Type *> globalTypes;
+
+  struct FunctionTypeInfo
+  {
+    std::vector<Type *> params;
+    Type *ret;
+  };
+  std::map<uint32_t, FunctionTypeInfo> functypes;
+
+  struct ExternalBinding
+  {
+    spv::StorageClass storageClass;
+    Value *value;
+    IDDecoration decoration;
+  };
+  std::vector<ExternalBinding> externals;
+
+  const uint32_t *opStart = pCode + 5;
+  const uint32_t *opEnd = pCode + codeSize;
+
+  // we do two passes:
+  // 1. Gather information:
+  //    - Parse types and create corresponding LLVM types
+  //    - Generate LLVM constants immediately
+  //    - Store names and debug info locally
+  //    - Gather decoration information locally
+  //    - Gather types of globals locally, in order
+  //
+  // Generate global struct here.
+  //
+  // 2. Process and generate LLVM functions and globals
+
+  pCode = opStart;
+  while(pCode < opEnd)
   {
     uint16_t WordCount = pCode[0] >> spv::WordCountShift;
 
@@ -263,18 +378,6 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
 
     switch(opcode)
     {
-      case spv::OpCapability:
-      case spv::OpMemoryModel:
-      case spv::OpExecutionMode:
-      case spv::OpExtInstImport:
-      case spv::OpSource:
-      case spv::OpSourceExtension:
-      case spv::OpMemberName:
-      {
-        // instructions we don't care about right now
-        break;
-      }
-
       ////////////////////////////////////////////////
       // Debug instructions
       ////////////////////////////////////////////////
@@ -291,22 +394,37 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
 
       case spv::OpEntryPoint:
       {
-        // we'll do this in a second pass once we have the function resolved
+        // we'll do this in a final pass once we have the function resolved
         entries.push_back(pCode);
         break;
       }
       case spv::OpDecorate:
       {
+        IDDecoration search = {pCode[1]};
+        auto it = std::lower_bound(decorations.begin(), decorations.end(), search);
         if(WordCount == 3)
-          decorations.push_back({pCode[1], (spv::Decoration)pCode[2], 0});
+        {
+          decorations.insert(it, {pCode[1], (spv::Decoration)pCode[2], 0, ~0U});
+
+          if(pCode[2] == spv::DecorationBlock)
+            blocks.insert(pCode[1]);
+        }
         else
-          decorations.push_back({pCode[1], (spv::Decoration)pCode[2], pCode[3]});
+        {
+          decorations.insert(it, {pCode[1], (spv::Decoration)pCode[2], pCode[3], ~0U});
+        }
 
         break;
       }
       case spv::OpMemberDecorate:
       {
-        // TODO
+        IDDecoration search = {pCode[1]};
+        auto it = std::lower_bound(decorations.begin(), decorations.end(), search);
+
+        if(WordCount == 4)
+          decorations.insert(it, {pCode[1], (spv::Decoration)pCode[3], 0, pCode[2]});
+        else
+          decorations.insert(it, {pCode[1], (spv::Decoration)pCode[3], pCode[4], pCode[2]});
         break;
       }
 
@@ -355,7 +473,13 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
       case spv::OpTypePointer:
       {
         types[pCode[1]] = PointerType::get(types[pCode[3]], 0);
-        // ignore pCode[2] storageclass
+
+        // if the pointed type is a block and this is a uniform pointer, propagate that to the
+        // pointer
+        if(blocks.find(pCode[3]) != blocks.end() && pCode[2] == spv::StorageClassUniform)
+          blocks.insert(pCode[1]);
+
+        ptrtypes[pCode[1]] = pCode[3];
         break;
       }
       case spv::OpTypeStruct:
@@ -368,10 +492,12 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
       }
       case spv::OpTypeFunction:
       {
-        std::vector<Type *> params;
+        // to patch in the globals struct, we declare OpTypeFunction the first time we meet an
+        // OpFunction (after any global variables - in the second pass).
+        FunctionTypeInfo &f = functypes[pCode[1]];
         for(uint16_t i = 3; i < WordCount; i++)
-          params.push_back(types[pCode[i]]);
-        types[pCode[1]] = FunctionType::get(types[pCode[2]], params, false);
+          f.params.push_back(types[pCode[i]]);
+        f.ret = types[pCode[2]];
         break;
       }
       case spv::OpTypeImage:
@@ -388,46 +514,27 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
 
       case spv::OpVariable:
       {
-        if(function)
-        {
-          assert(pCode[3] == spv::StorageClassFunction);
-          values[pCode[2]] = builder.CreateAlloca(types[pCode[1]]->getPointerElementType(), NULL,
-                                                  getname(pCode[2]));
+        // global variable
+        Type *t = types[pCode[1]];
+        assert(isa<PointerType>(t));
 
-          if(WordCount > 4)
-            builder.CreateStore(values[pCode[4]], values[pCode[2]]);
-        }
+        bool blockbind = (blocks.find(pCode[1]) != blocks.end());
+
+        // for blocks we declare the global variable as a pointer to a struct (and the variable
+        // itself is a pointer), this lets us just write the pointer value of where the buffer is
+        // without needing to copy the whole UBO.
+        // for non-blocks, e.g. int gl_PerVertex we take the "pointer to int" that the SPIR-V
+        // declares and only declare the global variable as an int - and as above the variable
+        // itself is a pointer. The value then gets stored/loaded directly
+        if(!blockbind)
+          t = t->getPointerElementType();
         else
-        {
-          Type *t = types[pCode[1]];
-          assert(isa<PointerType>(t));
+          blocks.insert(pCode[2]);
 
-          Constant *initialiser = Constant::getNullValue(t->getPointerElementType());
+        globalTypes.push_back(t);
 
-          if(WordCount > 4)
-          {
-            Value *initVal = values[pCode[4]];
-
-            // "Initializer must be an <id> from a constant instruction or a global (module scope)
-            // OpVariable instruction."
-            // so either it's already a constant, or else the variable it points to is initialised
-            // with a constant so we can steal it.
-            if(isa<Constant>(initVal))
-              initialiser = (Constant *)initVal;
-            else
-              initialiser = ((GlobalVariable *)initVal)->getInitializer();
-          }
-
-          values[pCode[2]] =
-              new GlobalVariable(*ret->module, t->getPointerElementType(), false,
-                                 GlobalValue::PrivateLinkage, initialiser, getname(pCode[2]));
-
-          if(pCode[3] == spv::StorageClassInput)
-            inputs.insert(pCode[2]);
-          else if(pCode[3] == spv::StorageClassOutput)
-            outputs.insert(pCode[2]);
-        }
-
+        // initialisers not handled
+        assert(WordCount == 4);
         break;
       }
       case spv::OpConstant:
@@ -449,6 +556,127 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         values[pCode[2]] = ConstantVector::get(members);
         break;
       }
+    }
+
+    // stop once we hit the functions
+    if(opcode == spv::OpFunction)
+      break;
+
+    pCode += WordCount;
+  }
+
+  // declare globals struct here
+  Type *globalStructType = StructType::create(globalTypes, "GlobalsStruct");
+
+  for(auto it = functypes.begin(); it != functypes.end(); ++it)
+  {
+    // all functions take the globals struct as the first parameter
+    it->second.params.insert(it->second.params.begin(), PointerType::get(globalStructType, 0));
+  }
+
+  uint64_t globalsIndex = 0;
+  Value *globalStruct = NULL;
+
+  auto makeglobal = [&globalsIndex]() -> Value * {
+    Value *ret = (Value *)(0x1 + globalsIndex);
+    globalsIndex++;
+    return ret;
+  };
+
+  auto getvalue = [&builder, &values, globalStructType, &globalStruct,
+                   &globalsIndex](Value *v) -> Value * {
+    if(v > (Value *)globalsIndex)
+      return v;
+
+    uint64_t idx = uint64_t(v) - 0x1;
+
+    return builder.CreateConstInBoundsGEP2_32(globalStructType, globalStruct, 0, (uint32_t)idx);
+  };
+
+  pCode = opStart;
+  while(pCode < opEnd)
+  {
+    uint16_t WordCount = pCode[0] >> spv::WordCountShift;
+
+    spv::Op opcode = spv::Op(pCode[0] & spv::OpCodeMask);
+
+    switch(opcode)
+    {
+      case spv::OpCapability:
+      case spv::OpMemoryModel:
+      case spv::OpExecutionMode:
+      case spv::OpExtInstImport:
+      case spv::OpSource:
+      case spv::OpSourceExtension:
+      case spv::OpMemberName:
+      {
+        // instructions we don't care about right now
+        break;
+      }
+
+      case spv::OpName:
+      case spv::OpEntryPoint:
+      case spv::OpDecorate:
+      case spv::OpMemberDecorate:
+      case spv::OpConstantComposite:
+      case spv::OpConstant:
+      case spv::OpTypeVoid:
+      case spv::OpTypeInt:
+      case spv::OpTypeFloat:
+      case spv::OpTypeVector:
+      case spv::OpTypeArray:
+      case spv::OpTypeMatrix:
+      case spv::OpTypePointer:
+      case spv::OpTypeStruct:
+      case spv::OpTypeFunction:
+      case spv::OpTypeImage:
+      case spv::OpTypeSampledImage:
+      {
+        // Opcodes processed in first pass that we don't need
+        break;
+      }
+
+      ////////////////////////////////////////////////
+      // Variables and Constants
+      ////////////////////////////////////////////////
+
+      case spv::OpVariable:
+      {
+        if(function)
+        {
+          assert(pCode[3] == spv::StorageClassFunction);
+          values[pCode[2]] = builder.CreateAlloca(types[pCode[1]]->getPointerElementType(), NULL,
+                                                  getname(pCode[2]));
+
+          if(WordCount > 4)
+            builder.CreateStore(values[pCode[4]], values[pCode[2]]);
+        }
+        else
+        {
+          // value is a 'virtual' value that indicates access to it must come through the globals
+          // struct in the function
+          values[pCode[2]] = makeglobal();
+
+          bool blockbind = (blocks.find(pCode[1]) != blocks.end());
+
+          IDDecoration search = {pCode[2]};
+          auto it = std::lower_bound(decorations.begin(), decorations.end(), search);
+
+          if(it->id != search.id)
+          {
+            search.id = ptrtypes[pCode[1]];
+            it = std::lower_bound(decorations.begin(), decorations.end(), search);
+          }
+
+          if(pCode[3] <= spv::StorageClassOutput)
+          {
+            for(; it != decorations.end() && it->id == search.id; ++it)
+              externals.push_back({(spv::StorageClass)pCode[3], values[pCode[2]], *it});
+          }
+        }
+
+        break;
+      }
 
       ////////////////////////////////////////////////
       // Functions
@@ -458,11 +686,22 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
       {
         sprintf_s(uniq_name, "%p_%d", ret, pCode[2]);
 
+        if(types[pCode[4]] == NULL)
+        {
+          const FunctionTypeInfo &f = functypes[pCode[4]];
+          types[pCode[4]] = FunctionType::get(f.ret, f.params, false);
+        }
+
         function = Function::Create((llvm::FunctionType *)types[pCode[4]],
-                                    llvm::GlobalValue::InternalLinkage, uniq_name, ret->module);
+                                    llvm::GlobalValue::InternalLinkage, uniq_name, m);
+
+        function->addFnAttr(Attribute::AlwaysInline);
+
         // ignore function return type pCode[1]
         // ignore function control pCode[3]
         functions.push_back(function);
+
+        globalStruct = function->arg_begin();
 
         values[pCode[2]] = function;
         break;
@@ -482,6 +721,7 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         }
 
         function = NULL;
+        globalStruct = NULL;
         break;
       }
 
@@ -498,14 +738,14 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
       }
       case spv::OpLoad:
       {
-        values[pCode[2]] = builder.CreateLoad(values[pCode[3]]);
+        values[pCode[2]] = builder.CreateLoad(getvalue(values[pCode[3]]));
         // ignore result type pCode[1]
         // ignore memory access pCode[4]
         break;
       }
       case spv::OpStore:
       {
-        builder.CreateStore(values[pCode[2]], values[pCode[1]]);
+        builder.CreateStore(values[pCode[2]], getvalue(values[pCode[1]]));
         // ignore memory access pCode[3]
         break;
       }
@@ -514,7 +754,16 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         std::vector<Value *> indices = {ConstantInt::get(Type::getInt32Ty(c), 0)};
         for(uint16_t i = 4; i < WordCount; i++)
           indices.push_back(values[pCode[i]]);
-        values[pCode[2]] = builder.CreateGEP(values[pCode[3]], indices);
+
+        Value *base = getvalue(values[pCode[3]]);
+
+        if(blocks.find(pCode[3]) != blocks.end())
+        {
+          // if this is a block pointer, we need to load the pointer value out of it then GEP that
+          base = builder.CreateLoad(base);
+        }
+
+        values[pCode[2]] = builder.CreateGEP(base, indices);
         // ignore memory access pCode[3]
         break;
       }
@@ -535,11 +784,12 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         }
 
         // call function
-        builder.CreateCall(Float4x4TimesVec4, {
-                                                  builder.CreateConstInBoundsGEP2_32(
-                                                      values[pCode[3]]->getType(), arrayptr, 0, 0),
-                                                  values[pCode[4]], retptr,
-                                              });
+        builder.CreateCall(
+            m->getFunction("Float4x4TimesVec4"),
+            {
+                builder.CreateConstInBoundsGEP2_32(values[pCode[3]]->getType(), arrayptr, 0, 0),
+                values[pCode[4]], retptr,
+            });
 
         // load return value
         values[pCode[2]] = builder.CreateLoad(retptr);
@@ -597,7 +847,6 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
     }
 
     pCode += WordCount;
-    it += WordCount;
   }
 
   for(const uint32_t *e : entries)
@@ -616,7 +865,7 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
     if(model == spv::ExecutionModelVertex)
     {
       exportedEntry = Function::Create((FunctionType *)t_VertexShader, GlobalValue::ExternalLinkage,
-                                       uniq_name, ret->module);
+                                       uniq_name, m);
 
       // mark reference parameters
       exportedEntry->addParamAttr(0, Attribute::Dereferenceable);
@@ -625,63 +874,88 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
       BasicBlock *block = BasicBlock::Create(c, "block", exportedEntry, NULL);
       builder.SetInsertPoint(block);
 
+      globalStruct = builder.CreateAlloca(globalStructType, 0, NULL, "Globals");
+
       Argument *gpustate = exportedEntry->arg_begin();
       Argument *vtxidx = gpustate + 1;
       Argument *cache = vtxidx + 1;
 
-      for(const IDDecoration &dec : decorations)
+      for(const ExternalBinding &ext : externals)
       {
-        uint32_t id = dec.id;
+        if(ext.storageClass == spv::StorageClassOutput)
+          continue;
 
-        if(dec.dec == spv::DecorationBuiltIn)
+        uint32_t id = ext.decoration.id;
+
+        Value *val = getvalue(ext.value);
+
+        if(ext.decoration.dec == spv::DecorationBuiltIn)
         {
-          spv::BuiltIn b = (spv::BuiltIn)dec.param;
+          spv::BuiltIn b = (spv::BuiltIn)ext.decoration.param;
           if(b == spv::BuiltInVertexIndex)
-            builder.CreateStore(vtxidx, values[id]);
+          {
+            builder.CreateStore(vtxidx, val);
+          }
+          else
+          {
+            printf("Unsupported buitin input");
+            assert(false);
+          }
         }
-        else if(dec.dec == spv::DecorationLocation && inputs.find(id) != inputs.end())
+        else if(ext.decoration.dec == spv::DecorationLocation)
         {
           // TODO populate input values from VBs
         }
-        else if(dec.dec == spv::DecorationDescriptorSet)
+        else if(ext.decoration.dec == spv::DecorationDescriptorSet)
         {
-          descset[dec.id] = dec.param;
+          descset[id] = ext.decoration.param;
         }
-        else if(dec.dec == spv::DecorationBinding)
+        else if(ext.decoration.dec == spv::DecorationBinding)
         {
-          Function *getfunc = GetDescriptorBufferPointer;
+          Function *getfunc = m->getFunction("GetDescriptorBufferPointer");
 
           // TODO if image, GetImage
+          assert(blocks.find(id) != blocks.end());
 
           Value *byteptr = builder.CreateCall(
               getfunc, {
-                           gpustate, ConstantInt::get(Type::getInt32Ty(c), descset[dec.id]),
-                           ConstantInt::get(Type::getInt32Ty(c), dec.param),
+                           gpustate, ConstantInt::get(Type::getInt32Ty(c), descset[id]),
+                           ConstantInt::get(Type::getInt32Ty(c), ext.decoration.param),
                        });
 
-          Value *bufptr = builder.CreatePointerCast(byteptr, values[dec.id]->getType());
+          Value *bufptr = builder.CreatePointerCast(byteptr, val->getType()->getPointerElementType());
 
-          Value *buf = builder.CreateLoad(bufptr);
-
-          builder.CreateStore(buf, values[dec.id]);
+          builder.CreateStore(bufptr, val);
         }
       }
 
-      builder.CreateCall(f, {});
+      builder.CreateCall(f, {globalStruct});
 
       Value *outpos =
           builder.CreateConstInBoundsGEP2_32(cache->getType()->getPointerElementType(), cache, 0, 0);
       Value *interp =
           builder.CreateConstInBoundsGEP2_32(cache->getType()->getPointerElementType(), cache, 0, 1);
 
-      for(const IDDecoration &dec : decorations)
+      for(const ExternalBinding &ext : externals)
       {
-        uint32_t id = dec.id;
+        if(ext.storageClass != spv::StorageClassOutput)
+          continue;
 
-        if(dec.dec == spv::DecorationLocation && outputs.find(id) != outputs.end())
+        uint32_t id = ext.decoration.id;
+
+        Value *val = getvalue(ext.value);
+        if(ext.decoration.member == ~0U)
         {
-          Value *val = builder.CreateLoad(values[id]);
+          val = builder.CreateLoad(val);
+        }
+        else
+        {
+          val = builder.CreateLoad(builder.CreateConstInBoundsGEP2_32(
+              val->getType()->getPointerElementType(), val, 0, ext.decoration.member));
+        }
 
+        if(ext.decoration.dec == spv::DecorationLocation)
+        {
           if(val->getType()->isVectorTy() && val->getType()->getVectorNumElements() < 4)
           {
             uint32_t mask[] = {0, 1, 2, 3};
@@ -692,24 +966,36 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
 
           builder.CreateStore(
               val, builder.CreateConstInBoundsGEP2_32(interp->getType()->getPointerElementType(),
-                                                      interp, 0, dec.param));
+                                                      interp, 0, ext.decoration.param));
+        }
+        else if(ext.decoration.dec == spv::DecorationBuiltIn)
+        {
+          switch(ext.decoration.param)
+          {
+            case spv::BuiltInPosition: builder.CreateStore(val, outpos); break;
+            case spv::BuiltInPointSize:
+            case spv::BuiltInClipDistance:
+            {
+              // TODO
+              break;
+            }
+            default:
+            {
+              printf("Unsupported builtin output");
+              assert(false);
+            }
+          }
         }
       }
 
-      // hack
-      {
-        Value *pos =
-            builder.CreateLoad(builder.CreateConstInBoundsGEP2_32(types[28], values[30], 0, 0));
-
-        builder.CreateStore(pos, outpos);
-      }
-
       builder.CreateRetVoid();
+
+      globalStruct = NULL;
     }
     else if(model == spv::ExecutionModelFragment)
     {
       exportedEntry = Function::Create((FunctionType *)t_FragmentShader,
-                                       GlobalValue::ExternalLinkage, uniq_name, ret->module);
+                                       GlobalValue::ExternalLinkage, uniq_name, m);
 
       // mark reference parameters
       exportedEntry->addParamAttr(0, Attribute::Dereferenceable);
@@ -719,15 +1005,19 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
       BasicBlock *block = BasicBlock::Create(c, "block", exportedEntry, NULL);
       builder.SetInsertPoint(block);
 
+      globalStruct = builder.CreateAlloca(globalStructType, 0, NULL, "Globals");
+
       // TODO interpolate inputs
 
       // TODO populate globals from descriptor sets
 
-      builder.CreateCall(f, {});
+      builder.CreateCall(f, {globalStruct});
 
       // TODO fetch outputs
 
       builder.CreateRetVoid();
+
+      globalStruct = NULL;
     }
     else
     {
@@ -739,14 +1029,14 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
   std::string str;
   raw_string_ostream os(str);
 
-  if(verifyModule(*ret->module, &os))
+  if(verifyModule(*m, &os))
   {
     printf("Module did not verify: %s\n", os.str().c_str());
     assert(false);
   }
 
   str.clear();
-  ret->module->print(os, NULL);
+  m->print(os, NULL);
   ret->ir = os.str();
 
   PassManagerBuilder pm_builder;
@@ -755,7 +1045,7 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
   pm_builder.LoopVectorize = true;
   pm_builder.SLPVectorize = true;
 
-  legacy::FunctionPassManager function_pm(ret->module);
+  legacy::FunctionPassManager function_pm(m);
   legacy::PassManager module_pm;
 
   pm_builder.populateFunctionPassManager(function_pm);
@@ -764,15 +1054,34 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
   function_pm.doInitialization();
   for(Function *f : functions)
     function_pm.run(*f);
-  module_pm.run(*ret->module);
+  module_pm.run(*m);
 
   str.clear();
-  ret->module->print(os, NULL);
+  m->print(os, NULL);
   ret->optir = os.str();
 
-  ret->module->setDataLayout(target->createDataLayout());
+  m->setDataLayout(target->createDataLayout());
 
-  compiler->addModule(std::shared_ptr<Module>(ret->module, [](Module *) {}), symbolResolver);
+  auto symbolResolver = llvm::orc::createLambdaResolver(
+      [ret](const std::string &name) {
+        JITSymbol sym = ret->linker->findSymbol(name, false);
+        if(sym)
+          return sym;
+
+        return globallinker->findSymbol(name, false);
+      },
+      [](const std::string &name) {
+        uint64_t sym_addr = RTDyldMemoryManager::getSymbolAddressInProcess(name);
+        if(sym_addr)
+          return JITSymbol(sym_addr, JITSymbolFlags::Exported);
+
+        return JITSymbol(NULL);
+      });
+
+  orc::SimpleCompiler &comp = *compiler;
+
+  ret->linker->addObject(std::make_shared<orc::SimpleCompiler::CompileResult>(comp(*m)),
+                         symbolResolver);
 
   return ret;
 }
@@ -786,7 +1095,7 @@ Shader GetFuncPointer(LLVMFunction *func, const char *name)
   llvm::raw_string_ostream os(str);
   llvm::Mangler::getNameWithPrefix(os, uniq_name, func->module->getDataLayout());
 
-  llvm::JITSymbol sym = compiler->findSymbol(os.str(), false);
+  llvm::JITSymbol sym = func->linker->findSymbol(os.str(), false);
 
   llvm::JITTargetAddress addr = *sym.getAddress();
 

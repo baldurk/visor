@@ -7,6 +7,9 @@
 // # cores - 1 (main rast thread steals work)
 #define NUM_THREADS 7
 
+// should main rasterizer thread start stealing work if it's spinning waiting for threads to finish
+#define WORK_STEAL 1
+
 struct TriangleWork
 {
   const GPUState *state;
@@ -489,6 +492,7 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
       TriangleWork triwork;
       bool work = false;
 
+#if WORK_STEAL
       {
         std::unique_lock<std::mutex> lk(rast.mutex);
 
@@ -506,6 +510,7 @@ void DrawTriangles(const GPUState &state, int numVerts, uint32_t first, bool ind
 
         rast.pending--;
       }
+#endif
     }
   }
 

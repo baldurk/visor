@@ -1978,6 +1978,22 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
 
           builder.CreateStore(imgptr, val);
         }
+        else if(ext.decoration.dec == spv::DecorationOffset &&
+                ext.storageClass == spv::StorageClassPushConstant)
+        {
+          Function *getfunc = m->getFunction("GetPushConstantPointer");
+
+          assert(blocks.find(id) != blocks.end());
+
+          Value *byteptr = builder.CreateCall(
+              getfunc, {
+                           gpustate, ConstantInt::get(Type::getInt32Ty(c), ext.decoration.param),
+                       });
+
+          Value *bufptr = builder.CreatePointerCast(byteptr, val->getType()->getPointerElementType());
+
+          builder.CreateStore(bufptr, val);
+        }
       }
 
       builder.CreateCall(f, {globalStruct});

@@ -1618,7 +1618,47 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         std::vector<uint32_t> indices;
         for(uint16_t i = 5; i < WordCount; i++)
           indices.push_back(pCode[i]);
-        values[pCode[2]] = builder.CreateShuffleVector(values[pCode[3]], values[pCode[4]], indices);
+
+        Value *a = values[pCode[3]];
+        Value *b = values[pCode[4]];
+
+        // LLVM requires vectors to have identical sizes. If the second is shorter it's no big deal,
+        // we just extend it with another shuffle.
+        // If the first is shorter, we need to extend it but then also patch any indices referring
+        // to the second vector.
+        if(a->getType()->getVectorNumElements() < b->getType()->getVectorNumElements())
+        {
+          std::vector<uint32_t> expand = {0, 1, 2, 3};
+          // truncate to only the valid indices
+          expand.resize(a->getType()->getVectorNumElements());
+          // expand again to pad with 0s
+          expand.resize(b->getType()->getVectorNumElements());
+
+          unsigned extras =
+              b->getType()->getVectorNumElements() - a->getType()->getVectorNumElements();
+
+          for(uint32_t &i : indices)
+          {
+            if(i >= a->getType()->getVectorNumElements())
+              i += extras;
+          }
+
+          // shuffle to pad out the vector
+          a = builder.CreateShuffleVector(a, a, expand);
+        }
+        else if(b->getType()->getVectorNumElements() < a->getType()->getVectorNumElements())
+        {
+          std::vector<uint32_t> expand = {0, 1, 2, 3};
+          // truncate to only the valid indices
+          expand.resize(b->getType()->getVectorNumElements());
+          // expand again to pad with 0s
+          expand.resize(a->getType()->getVectorNumElements());
+
+          // shuffle to pad out the vector
+          b = builder.CreateShuffleVector(b, b, expand);
+        }
+
+        values[pCode[2]] = builder.CreateShuffleVector(a, b, indices);
         break;
       }
 

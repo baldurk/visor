@@ -1754,14 +1754,20 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
 
       case spv::OpCompositeExtract:
       {
-        if(WordCount == 5)
-        {
-          values[pCode[2]] = builder.CreateExtractElement(values[pCode[3]], pCode[4]);
-        }
-        else if(WordCount == 6)
+        if(values[pCode[3]]->getType()->isArrayTy())
         {
           Value *subel = builder.CreateExtractValue(values[pCode[3]], {pCode[4]});
-          values[pCode[2]] = builder.CreateExtractElement(subel, pCode[5]);
+
+          // if we're extracting a vector
+          if(WordCount == 5)
+            values[pCode[2]] = subel;
+          else if(WordCount == 6)
+            values[pCode[2]] = builder.CreateExtractElement(subel, pCode[5]);
+        }
+        else
+        {
+          // vector can only have one level of indexing
+          values[pCode[2]] = builder.CreateExtractElement(values[pCode[3]], pCode[4]);
         }
         break;
       }

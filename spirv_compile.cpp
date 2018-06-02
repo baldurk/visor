@@ -521,8 +521,7 @@ extern "C" __declspec(dllexport) void Float4x4Inverse(const float *in, float *ou
 extern "C" __declspec(dllexport) const byte *GetDescriptorBufferPointer(const GPUState &state,
                                                                         uint32_t set, uint32_t bind)
 {
-  assert(set == 0);
-  const VkDescriptorBufferInfo &buf = state.set->binds[bind].data.bufferInfo;
+  const VkDescriptorBufferInfo &buf = state.sets[set]->binds[bind].data.bufferInfo;
 
   return buf.buffer->bytes + buf.offset;
 }
@@ -530,8 +529,7 @@ extern "C" __declspec(dllexport) const byte *GetDescriptorBufferPointer(const GP
 extern "C" __declspec(dllexport) VkImage
     GetDescriptorImage(const GPUState &state, uint32_t set, uint32_t bind)
 {
-  assert(set == 0);
-  return state.set->binds[bind].data.imageInfo.imageView->image;
+  return state.sets[set]->binds[bind].data.imageInfo.imageView->image;
 }
 
 extern "C" __declspec(dllexport) const byte *GetPushConstantPointer(const GPUState &state,
@@ -1647,6 +1645,11 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
 
     std::map<uint32_t, uint32_t> descset;
 
+    // cache descriptor sets
+    for(const ExternalBinding &ext : externals)
+      if(ext.decoration.dec == spv::DecorationDescriptorSet)
+        descset[ext.decoration.id] = ext.decoration.param;
+
     if(model == spv::ExecutionModelVertex)
     {
       exportedEntry = Function::Create((FunctionType *)t_VertexShader, GlobalValue::ExternalLinkage,
@@ -1713,7 +1716,7 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         }
         else if(ext.decoration.dec == spv::DecorationDescriptorSet)
         {
-          descset[id] = ext.decoration.param;
+          // nothing to do, processed above
         }
         else if(ext.decoration.dec == spv::DecorationBinding)
         {
@@ -1920,7 +1923,7 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         }
         else if(ext.decoration.dec == spv::DecorationDescriptorSet)
         {
-          descset[id] = ext.decoration.param;
+          // nothing to do, processed above
         }
         else if(ext.decoration.dec == spv::DecorationBinding)
         {

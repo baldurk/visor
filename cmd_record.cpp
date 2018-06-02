@@ -54,12 +54,15 @@ VKAPI_ATTR void VKAPI_CALL vkCmdBindDescriptorSets(
     uint32_t firstSet, uint32_t descriptorSetCount, const VkDescriptorSet *pDescriptorSets,
     uint32_t dynamicOffsetCount, const uint32_t *pDynamicOffsets)
 {
-  cmd::BindDescriptorSets *cmd = commandBuffer->push<cmd::BindDescriptorSets>();
+  assert(dynamicOffsetCount == 0);
 
-  if(descriptorSetCount > 0)
-    cmd->set = pDescriptorSets[0];
-  else
-    cmd->set = VK_NULL_HANDLE;
+  for(uint32_t i = 0; i < descriptorSetCount; i++)
+  {
+    cmd::BindDescriptorSets *cmd = commandBuffer->push<cmd::BindDescriptorSets>();
+
+    cmd->idx = firstSet + i;
+    cmd->set = pDescriptorSets[i];
+  }
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdBindVertexBuffers(VkCommandBuffer commandBuffer,

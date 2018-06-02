@@ -82,7 +82,7 @@ void VkCommandBuffer_T::execute() const
       {
         const cmd::BindDescriptorSets &data = pull<cmd::BindDescriptorSets>(&cur);
 
-        state.set = data.set;
+        state.sets[data.idx] = data.set;
 
         break;
       }

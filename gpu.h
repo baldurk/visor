@@ -53,7 +53,7 @@ __declspec(align(16)) struct float4
 struct VertexCacheEntry
 {
   float4 position;
-  float4 interps[8];
+  float4 interps[10];
 };
 
 void ClearTarget(VkImage target, const VkClearColorValue &col);

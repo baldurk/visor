@@ -288,8 +288,8 @@ void InitLLVM()
                                        {
                                            // float4 position
                                            t_float4,
-                                           // float4 interps[8]
-                                           ArrayType::get(t_float4, 8),
+                                           // float4 interps[10]
+                                           ArrayType::get(t_float4, 10),
                                        },
                                        "VertexCacheEntry");
 
@@ -1878,9 +1878,22 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
             val = builder.CreateVectorSplat(4, val);
           }
 
-          builder.CreateStore(
-              val, builder.CreateConstInBoundsGEP2_32(interp->getType()->getPointerElementType(),
-                                                      interp, 0, ext.decoration.param));
+          Value *outputGEP = builder.CreateConstInBoundsGEP2_32(
+              interp->getType()->getPointerElementType(), interp, 0, ext.decoration.param);
+
+          if(val->getType()->isArrayTy())
+          {
+            for(unsigned a = 0; a < val->getType()->getArrayNumElements(); a++)
+            {
+              builder.CreateStore(builder.CreateExtractValue(val, {a}),
+                                  builder.CreateConstInBoundsGEP1_32(
+                                      val->getType()->getArrayElementType(), outputGEP, a));
+            }
+          }
+          else
+          {
+            builder.CreateStore(val, outputGEP);
+          }
         }
         else if(ext.decoration.dec == spv::DecorationBuiltIn)
         {
@@ -1955,45 +1968,83 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
 
           uint32_t loc = ext.decoration.param;
 
-          // load the vectors we're interpolating between
-          Value *vertVec[3];
-          for(unsigned comp = 0; comp < 3; comp++)
+          if(interpType->isArrayTy() || interpType->isVectorTy())
           {
-            vertVec[comp] = builder.CreateLoad(
-                builder.CreateInBoundsGEP(tri, {
-                                                   // tri[comp]
-                                                   ConstantInt::get(Type::getInt32Ty(c), comp),
-                                                   // .interps
-                                                   ConstantInt::get(Type::getInt32Ty(c), 1),
-                                                   // [loc]
-                                                   ConstantInt::get(Type::getInt32Ty(c), loc),
-                                               }));
-          }
+            uint64_t arraySize = interpType->isArrayTy() ? interpType->getArrayNumElements() : 1;
 
-          if(interpType->isVectorTy())
-          {
-            // for each component, dot() the barycentric co-ords with the component from each
-            // verts' vector
-            interp = UndefValue::get(interpType);
+            bool isArray = interpType->isArrayTy();
 
-            for(unsigned i = 0; i < interpType->getVectorNumElements(); i++)
+            if(interpType->isArrayTy())
             {
-              Value *compValue = Constant::getNullValue(VectorType::get(Type::getFloatTy(c), 4));
+              interp = UndefValue::get(interpType);
 
+              interpType = interpType->getArrayElementType();
+            }
+
+            for(uint64_t a = 0; a < arraySize; a++)
+            {
+              // load the vectors we're interpolating between
+              Value *vertVec[3];
               for(unsigned comp = 0; comp < 3; comp++)
               {
-                compValue = builder.CreateInsertElement(
-                    compValue, builder.CreateExtractElement(vertVec[comp], i),
-                    ConstantInt::get(Type::getInt32Ty(c), comp));
+                vertVec[comp] = builder.CreateLoad(builder.CreateInBoundsGEP(
+                    tri, {
+                             // tri[comp]
+                             ConstantInt::get(Type::getInt32Ty(c), comp),
+                             // .interps
+                             ConstantInt::get(Type::getInt32Ty(c), 1),
+                             // [loc+a]
+                             ConstantInt::get(Type::getInt32Ty(c), loc + a),
+                         }));
               }
 
-              Value *interpComp = CreateDot(builder, loadedBary, compValue, 4);
-              interp = builder.CreateInsertElement(interp, interpComp,
-                                                   ConstantInt::get(Type::getInt32Ty(c), i));
+              Value *interpVec = UndefValue::get(interpType);
+
+              // for each component, dot() the barycentric co-ords with the component from each
+              // verts' vector
+              for(unsigned i = 0; i < interpType->getVectorNumElements(); i++)
+              {
+                Value *compValue = Constant::getNullValue(VectorType::get(Type::getFloatTy(c), 4));
+
+                for(unsigned comp = 0; comp < 3; comp++)
+                {
+                  compValue = builder.CreateInsertElement(
+                      compValue, builder.CreateExtractElement(vertVec[comp], i),
+                      ConstantInt::get(Type::getInt32Ty(c), comp));
+                }
+
+                Value *interpComp = CreateDot(builder, loadedBary, compValue, 4);
+                interpVec = builder.CreateInsertElement(interpVec, interpComp,
+                                                        ConstantInt::get(Type::getInt32Ty(c), i));
+              }
+
+              if(isArray)
+              {
+                interp = builder.CreateInsertValue(interp, interpVec, {(unsigned)a});
+              }
+              else
+              {
+                interp = interpVec;
+              }
             }
           }
           else
           {
+            // load the vectors we're interpolating between
+            Value *vertVec[3];
+            for(unsigned comp = 0; comp < 3; comp++)
+            {
+              vertVec[comp] = builder.CreateLoad(
+                  builder.CreateInBoundsGEP(tri, {
+                                                     // tri[comp]
+                                                     ConstantInt::get(Type::getInt32Ty(c), comp),
+                                                     // .interps
+                                                     ConstantInt::get(Type::getInt32Ty(c), 1),
+                                                     // [loc]
+                                                     ConstantInt::get(Type::getInt32Ty(c), loc),
+                                                 }));
+            }
+
             Value *compValue = Constant::getNullValue(VectorType::get(Type::getFloatTy(c), 4));
 
             for(unsigned comp = 0; comp < 3; comp++)

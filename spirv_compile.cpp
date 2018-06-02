@@ -563,21 +563,29 @@ extern "C" __declspec(dllexport) void GetVertexAttributeData(const GPUState &sta
   switch(state.pipeline->vattrs[attr].format)
   {
     case VK_FORMAT_R32G32B32A32_SFLOAT:
+    case VK_FORMAT_R32G32B32A32_UINT:
+    case VK_FORMAT_R32G32B32A32_SINT:
     {
       out.w = f32[3];
       // deliberate fallthrough
     }
     case VK_FORMAT_R32G32B32_SFLOAT:
+    case VK_FORMAT_R32G32B32_UINT:
+    case VK_FORMAT_R32G32B32_SINT:
     {
       out.z = f32[2];
       // deliberate fallthrough
     }
     case VK_FORMAT_R32G32_SFLOAT:
+    case VK_FORMAT_R32G32_UINT:
+    case VK_FORMAT_R32G32_SINT:
     {
       out.y = f32[1];
       // deliberate fallthrough
     }
     case VK_FORMAT_R32_SFLOAT:
+    case VK_FORMAT_R32_UINT:
+    case VK_FORMAT_R32_SINT:
     {
       out.x = f32[0];
       break;
@@ -1793,12 +1801,29 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
 
           Value *outval = builder.CreateLoad(outvec4);
 
-          std::vector<uint32_t> shuf = {0, 1, 2, 3};
-          shuf.resize(val->getType()->getPointerElementType()->getVectorNumElements());
+          Type *innertype = val->getType()->getPointerElementType();
 
-          Value *truncval = builder.CreateShuffleVector(outval, outval, shuf);
+          if(innertype->isVectorTy())
+          {
+            if(innertype->getVectorElementType()->isIntegerTy())
+              outval = builder.CreateBitCast(outval, innertype);
 
-          builder.CreateStore(truncval, val);
+            std::vector<uint32_t> shuf = {0, 1, 2, 3};
+            shuf.resize(val->getType()->getPointerElementType()->getVectorNumElements());
+
+            Value *truncval = builder.CreateShuffleVector(outval, outval, shuf);
+
+            builder.CreateStore(truncval, val);
+          }
+          else
+          {
+            Value *scalarval = builder.CreateExtractElement(outval, 0ULL);
+
+            if(innertype->isIntegerTy())
+              scalarval = builder.CreateBitCast(scalarval, innertype);
+
+            builder.CreateStore(scalarval, val);
+          }
         }
         else if(ext.decoration.dec == spv::DecorationDescriptorSet)
         {
@@ -1876,6 +1901,11 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
           else if(val->getType()->isFloatTy())
           {
             val = builder.CreateVectorSplat(4, val);
+          }
+          else if(val->getType()->isIntegerTy())
+          {
+            Value *castval = builder.CreateBitCast(val, Type::getFloatTy(c));
+            val = builder.CreateVectorSplat(4, castval);
           }
 
           Value *outputGEP = builder.CreateConstInBoundsGEP2_32(
@@ -2030,31 +2060,54 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
           }
           else
           {
-            // load the vectors we're interpolating between
-            Value *vertVec[3];
-            for(unsigned comp = 0; comp < 3; comp++)
+            // flat interpolation
+            if(interpType->isIntegerTy())
             {
-              vertVec[comp] = builder.CreateLoad(
+              // load the float4 from vert 0
+              Value *vec = builder.CreateLoad(
                   builder.CreateInBoundsGEP(tri, {
                                                      // tri[comp]
-                                                     ConstantInt::get(Type::getInt32Ty(c), comp),
+                                                     ConstantInt::get(Type::getInt32Ty(c), 0),
                                                      // .interps
                                                      ConstantInt::get(Type::getInt32Ty(c), 1),
                                                      // [loc]
                                                      ConstantInt::get(Type::getInt32Ty(c), loc),
                                                  }));
+
+              // extract the first component
+              Value *flt = builder.CreateExtractElement(vec, 0LLU);
+
+              // bitcast to int
+              interp = builder.CreateBitCast(flt, interpType);
             }
-
-            Value *compValue = Constant::getNullValue(VectorType::get(Type::getFloatTy(c), 4));
-
-            for(unsigned comp = 0; comp < 3; comp++)
+            else
             {
-              compValue = builder.CreateInsertElement(
-                  compValue, builder.CreateExtractElement(vertVec[comp], 0LLU),
-                  ConstantInt::get(Type::getInt32Ty(c), comp));
-            }
+              // load the vectors we're interpolating between
+              Value *vertVec[3];
+              for(unsigned comp = 0; comp < 3; comp++)
+              {
+                vertVec[comp] = builder.CreateLoad(
+                    builder.CreateInBoundsGEP(tri, {
+                                                       // tri[comp]
+                                                       ConstantInt::get(Type::getInt32Ty(c), comp),
+                                                       // .interps
+                                                       ConstantInt::get(Type::getInt32Ty(c), 1),
+                                                       // [loc]
+                                                       ConstantInt::get(Type::getInt32Ty(c), loc),
+                                                   }));
+              }
 
-            interp = CreateDot(builder, loadedBary, compValue, 4);
+              Value *compValue = Constant::getNullValue(VectorType::get(Type::getFloatTy(c), 4));
+
+              for(unsigned comp = 0; comp < 3; comp++)
+              {
+                compValue = builder.CreateInsertElement(
+                    compValue, builder.CreateExtractElement(vertVec[comp], 0LLU),
+                    ConstantInt::get(Type::getInt32Ty(c), comp));
+              }
+
+              interp = CreateDot(builder, loadedBary, compValue, 4);
+            }
           }
 
           builder.CreateStore(interp, val);

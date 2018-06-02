@@ -251,22 +251,6 @@ static void DeclareGlobalFunctions(llvm::Module *m)
                                      },
                                      false),
                    GlobalValue::ExternalLinkage, "sample_cube_wrapped", m);
-
-  Function::Create(FunctionType::get(Type::getVoidTy(c),
-                                     {
-                                         // float x
-                                         Type::getFloatTy(c),
-                                         // float y
-                                         Type::getFloatTy(c),
-                                         // float z
-                                         Type::getFloatTy(c),
-                                         // VkImage tex
-                                         t_VkImage,
-                                         // float4 &out
-                                         PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
-                                     },
-                                     false),
-                   GlobalValue::ExternalLinkage, "sample_cube_wrapped", m);
 }
 
 void InitLLVM()
@@ -1178,6 +1162,11 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         values[pCode[2]] = builder.CreateFCmpOGT(values[pCode[3]], values[pCode[4]]);
         break;
       }
+      case spv::OpSLessThan:
+      {
+        values[pCode[2]] = builder.CreateICmpSLT(values[pCode[3]], values[pCode[4]]);
+        break;
+      }
 
       ////////////////////////////////////////////////
       // Flow control Instructions
@@ -1197,6 +1186,7 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         break;
       }
       case spv::OpSelectionMerge:
+      case spv::OpLoopMerge:
       {
         // don't need to do anything
         break;
@@ -1405,6 +1395,11 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         values[pCode[2]] = builder.CreateFMul(values[pCode[3]], values[pCode[4]]);
         break;
       }
+      case spv::OpFDiv:
+      {
+        values[pCode[2]] = builder.CreateFDiv(values[pCode[3]], values[pCode[4]]);
+        break;
+      }
       case spv::OpFAdd:
       {
         values[pCode[2]] = builder.CreateFAdd(values[pCode[3]], values[pCode[4]]);
@@ -1418,6 +1413,16 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
       case spv::OpFNegate:
       {
         values[pCode[2]] = builder.CreateFNeg(values[pCode[3]]);
+        break;
+      }
+      case spv::OpIMul:
+      {
+        values[pCode[2]] = builder.CreateMul(values[pCode[3]], values[pCode[4]]);
+        break;
+      }
+      case spv::OpIAdd:
+      {
+        values[pCode[2]] = builder.CreateAdd(values[pCode[3]], values[pCode[4]]);
         break;
       }
       case spv::OpDPdx:

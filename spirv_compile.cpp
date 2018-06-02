@@ -172,6 +172,19 @@ static void DeclareGlobalFunctions(llvm::Module *m)
   Function::Create(
       FunctionType::get(Type::getVoidTy(c),
                         {
+                            // float4 a[4],
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                            // float b,
+                            Type::getFloatTy(c),
+                            // float4 *result,
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                        },
+                        false),
+      GlobalValue::ExternalLinkage, "Float4x4TimesFloat", m);
+
+  Function::Create(
+      FunctionType::get(Type::getVoidTy(c),
+                        {
                             // float4 in[4],
                             PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
                             // float4 *result,
@@ -455,6 +468,17 @@ extern "C" __declspec(dllexport) void Float4x4TimesFloat4x4(const float *a, cons
     {
       out[x * 4 + y] = b[x * 4 + 0] * a[0 * 4 + y] + b[x * 4 + 1] * a[1 * 4 + y] +
                        b[x * 4 + 2] * a[2 * 4 + y] + b[x * 4 + 3] * a[3 * 4 + y];
+    }
+  }
+}
+
+extern "C" __declspec(dllexport) void Float4x4TimesFloat(const float *a, float b, float *out)
+{
+  for(size_t x = 0; x < 4; x++)
+  {
+    for(size_t y = 0; y < 4; y++)
+    {
+      out[x * 4 + y] = a[x * 4 + y] * b;
     }
   }
 }
@@ -1157,12 +1181,17 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
       }
 
       ////////////////////////////////////////////////
-      // Logic Instructions
+      // Logic/Bitwise Instructions
       ////////////////////////////////////////////////
 
       case spv::OpFOrdLessThan:
       {
         values[pCode[2]] = builder.CreateFCmpOLT(values[pCode[3]], values[pCode[4]]);
+        break;
+      }
+      case spv::OpFOrdLessThanEqual:
+      {
+        values[pCode[2]] = builder.CreateFCmpOLE(values[pCode[3]], values[pCode[4]]);
         break;
       }
       case spv::OpFOrdGreaterThan:
@@ -1173,6 +1202,26 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
       case spv::OpSLessThan:
       {
         values[pCode[2]] = builder.CreateICmpSLT(values[pCode[3]], values[pCode[4]]);
+        break;
+      }
+      case spv::OpIEqual:
+      {
+        values[pCode[2]] = builder.CreateICmpEQ(values[pCode[3]], values[pCode[4]]);
+        break;
+      }
+      case spv::OpShiftLeftLogical:
+      {
+        values[pCode[2]] = builder.CreateLShr(values[pCode[3]], values[pCode[4]]);
+        break;
+      }
+      case spv::OpBitwiseAnd:
+      {
+        values[pCode[2]] = builder.CreateAnd(values[pCode[3]], values[pCode[4]]);
+        break;
+      }
+      case spv::OpConvertSToF:
+      {
+        values[pCode[2]] = builder.CreateSIToFP(values[pCode[3]], types[pCode[1]]);
         break;
       }
 
@@ -1365,6 +1414,33 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         values[pCode[2]] = builder.CreateLoad(retptr);
         break;
       }
+      case spv::OpMatrixTimesScalar:
+      {
+        // create output value
+        Value *retptr = builder.CreateAlloca(types[pCode[1]]);
+
+        // create temporary array
+        Value *matptr = builder.CreateAlloca(types[pCode[1]]);
+
+        // fill temporary array with values
+        for(unsigned i = 0; i < types[pCode[1]]->getArrayNumElements(); i++)
+        {
+          builder.CreateStore(builder.CreateExtractValue(values[pCode[3]], {i}),
+                              builder.CreateConstInBoundsGEP2_32(types[pCode[1]], matptr, 0, i));
+        }
+
+        // call function
+        builder.CreateCall(
+            m->getFunction("Float4x4TimesFloat"),
+            {
+                builder.CreateConstInBoundsGEP2_32(types[pCode[1]], matptr, 0, 0), values[pCode[4]],
+                builder.CreateConstInBoundsGEP2_32(types[pCode[1]], retptr, 0, 0),
+            });
+
+        // load return value
+        values[pCode[2]] = builder.CreateLoad(retptr);
+        break;
+      }
       case spv::OpTranspose:
       {
         // create output value
@@ -1472,13 +1548,87 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
             assert(WordCount == 8);
             Value *val = ARG(0);
             Value *lowerBound = ARG(1);
-            Value *upperBound = ARG(1);
+            Value *upperBound = ARG(2);
 
             Value *upperClamped =
                 builder.CreateSelect(builder.CreateFCmpOLT(val, upperBound), val, upperBound);
 
+            values[pCode[2]] = builder.CreateSelect(builder.CreateFCmpOGT(upperClamped, lowerBound),
+                                                    upperClamped, lowerBound);
+
+            break;
+          }
+          case GLSLstd450FMix:
+          {
+            assert(WordCount == 8);
+            Value *x = ARG(0);
+            Value *y = ARG(1);
+            Value *a = ARG(2);
+
+            Value *one = ConstantFP::get(Type::getFloatTy(c), 1.0f);
+            if(x->getType()->isVectorTy())
+              one = builder.CreateVectorSplat(x->getType()->getVectorNumElements(), one);
+
+            Value *xmul = builder.CreateFSub(one, a);
+            Value *ymul = a;
+
             values[pCode[2]] =
-                builder.CreateSelect(builder.CreateFCmpOGT(val, lowerBound), val, lowerBound);
+                builder.CreateFAdd(builder.CreateFMul(xmul, x), builder.CreateFMul(ymul, y));
+
+            break;
+          }
+          case GLSLstd450Cos:
+          {
+            assert(WordCount == 6);
+            Value *a = ARG(0);
+            Value *cos = Intrinsic::getDeclaration(m, Intrinsic::cos, {Type::getFloatTy(c)});
+            values[pCode[2]] = builder.CreateCall(cos, {a});
+            break;
+          }
+          case GLSLstd450Sin:
+          {
+            assert(WordCount == 6);
+            Value *a = ARG(0);
+            Value *sin = Intrinsic::getDeclaration(m, Intrinsic::sin, {Type::getFloatTy(c)});
+            values[pCode[2]] = builder.CreateCall(sin, {a});
+            break;
+          }
+          case GLSLstd450Sqrt:
+          {
+            assert(WordCount == 6);
+            Value *a = ARG(0);
+            Value *sqrt = Intrinsic::getDeclaration(m, Intrinsic::sqrt, {Type::getFloatTy(c)});
+            values[pCode[2]] = builder.CreateCall(sqrt, {a});
+            break;
+          }
+          case GLSLstd450InverseSqrt:
+          {
+            assert(WordCount == 6);
+            Value *a = ARG(0);
+            Value *sqrt = Intrinsic::getDeclaration(m, Intrinsic::sqrt, {Type::getFloatTy(c)});
+
+            Value *one = ConstantFP::get(Type::getFloatTy(c), 1.0f);
+
+            Value *sqrtVal = NULL;
+
+            if(types[pCode[1]]->isVectorTy())
+            {
+              one = builder.CreateVectorSplat(a->getType()->getVectorNumElements(), one);
+
+              // vectors are calculated component-wise
+              Value *sqrtVal = UndefValue::get(types[pCode[1]]);
+              for(unsigned v = 0; v < types[pCode[1]]->getVectorNumElements(); v++)
+              {
+                Value *result = builder.CreateCall(sqrt, {builder.CreateExtractElement(a, v)});
+                sqrtVal = builder.CreateInsertElement(sqrtVal, result, v);
+              }
+            }
+            else
+            {
+              sqrtVal = builder.CreateCall(sqrt, {a});
+            }
+
+            values[pCode[2]] = builder.CreateFDiv(one, sqrtVal);
 
             break;
           }
@@ -1493,6 +1643,15 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
                 a->getType()->getVectorNumElements(),
                 builder.CreateFDiv(ConstantFP::get(Type::getFloatTy(c), 1.0), len));
             values[pCode[2]] = builder.CreateFMul(a, invlen);
+            break;
+          }
+          case GLSLstd450Length:
+          {
+            assert(WordCount == 6);
+            Value *a = ARG(0);
+            Value *sqrlen = CreateDot(builder, a, a, a->getType()->getVectorNumElements());
+            Value *sqrt = Intrinsic::getDeclaration(m, Intrinsic::sqrt, {Type::getFloatTy(c)});
+            values[pCode[2]] = builder.CreateCall(sqrt, {sqrlen});
             break;
           }
           case GLSLstd450Cross:

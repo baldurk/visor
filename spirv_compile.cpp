@@ -1697,8 +1697,8 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
                                        uniq_name, m);
 
       // mark reference parameters
-      exportedEntry->addParamAttr(0, Attribute::Dereferenceable);
-      exportedEntry->addParamAttr(2, Attribute::Dereferenceable);
+      exportedEntry->addParamAttr(
+          2, Attribute::get(c, Attribute::Dereferenceable, sizeof(VertexCacheEntry)));
 
       BasicBlock *block = BasicBlock::Create(c, "block", exportedEntry, NULL);
       builder.SetInsertPoint(block);
@@ -1868,9 +1868,10 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
                                        GlobalValue::ExternalLinkage, uniq_name, m);
 
       // mark reference parameters
-      exportedEntry->addParamAttr(0, Attribute::Dereferenceable);
-      exportedEntry->addParamAttr(2, Attribute::Dereferenceable);
-      exportedEntry->addParamAttr(4, Attribute::Dereferenceable);
+      exportedEntry->addParamAttr(2, Attribute::get(c, Attribute::Dereferenceable, sizeof(float4)));
+      exportedEntry->addParamAttr(
+          3, Attribute::get(c, Attribute::Dereferenceable, sizeof(VertexCacheEntry) * 3));
+      exportedEntry->addParamAttr(4, Attribute::get(c, Attribute::Dereferenceable, sizeof(float4)));
 
       BasicBlock *block = BasicBlock::Create(c, "block", exportedEntry, NULL);
       builder.SetInsertPoint(block);

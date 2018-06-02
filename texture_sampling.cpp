@@ -90,7 +90,7 @@ float4 &CacheCoord(VkImage tex, VkDeviceSize byteOffs, int x, int y)
 
   byte *base = tex->pixels + byteOffs;
 
-  if(tex->format == VK_FORMAT_BC2_UNORM_BLOCK)
+  if(tex->format == VK_FORMAT_BC2_UNORM_BLOCK || tex->format == VK_FORMAT_BC3_UNORM_BLOCK)
   {
     byte decoded[16 * 4];
 
@@ -100,7 +100,10 @@ float4 &CacheCoord(VkImage tex, VkDeviceSize byteOffs, int x, int y)
 
     byte *blockbase = base + (blockY * widthInBlocks + blockX) * 16;
 
-    DecompressBlockBC2(0, 0, 4 * sizeof(uint32_t), blockbase, decoded);
+    if(tex->format == VK_FORMAT_BC2_UNORM_BLOCK)
+      DecompressBlockBC2(0, 0, 4 * sizeof(uint32_t), blockbase, decoded);
+    else if(tex->format == VK_FORMAT_BC3_UNORM_BLOCK)
+      DecompressBlockBC3(0, 0, 4 * sizeof(uint32_t), blockbase, decoded);
 
     for(int row = 0; row < 4; row++)
     {

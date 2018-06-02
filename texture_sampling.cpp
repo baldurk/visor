@@ -139,8 +139,8 @@ float4 &CacheCoord(VkImage tex, VkDeviceSize byteOffs, int x, int y)
 extern "C" __declspec(dllexport) void sample_tex_wrapped(float u, float v, VkImage tex,
                                                          VkDeviceSize byteOffs, float4 &out)
 {
-  u = fmodf(u, 1.0f);
-  v = fmodf(v, 1.0f);
+  u = u - floor(u);
+  v = v - floor(v);
 
   u *= tex->extent.width;
   v *= tex->extent.height;

@@ -54,9 +54,6 @@ typedef void (*VertexShader)(const GPUState &state, uint32_t vertexIndex, Vertex
 typedef void (*FragmentShader)(const GPUState &state, float pixdepth, const float4 &bary,
                                const VertexCacheEntry tri[3], float4 &out);
 
-void InitPremadeShaders();
-Shader GetPremadeShader(uint32_t hash);
-
 struct VkCommandBuffer_T
 {
   uintptr_t loaderMagic;
@@ -113,12 +110,18 @@ struct VkBuffer_T
 
 struct VkShaderModule_T
 {
-  Shader func = NULL;
   LLVMFunction *handle = NULL;
 };
 
 struct VkPipeline_T
 {
+  struct
+  {
+    VkFormat format;
+    uint32_t stride;
+    uint32_t offset;
+    uint32_t vb;
+  } vattrs[16];
   VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
   VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   VkCullModeFlags cullMode = VK_CULL_MODE_FLAG_BITS_MAX_ENUM;
@@ -198,15 +201,5 @@ struct VkSwapchainKHR_T
 
   uint32_t current = 0;
 };
-
-inline uint32_t hashSPV(const uint32_t *spv, size_t numWords)
-{
-  uint32_t hash = 5381;
-
-  for(uint32_t i = 0; i < numWords; i++)
-    hash = ((hash << 5) + hash) + spv[i]; /* hash * 33 + c */
-
-  return hash;
-}
 
 VkDeviceSize CalcSubresourceByteOffset(VkImage img, uint32_t mip, uint32_t layer);

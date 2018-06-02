@@ -38,7 +38,7 @@ typedef llvm::orc::RTDyldObjectLinkingLayer Linker;
 namespace
 {
 llvm::LLVMContext *context = NULL;
-llvm::SectionMemoryManager memManager;
+llvm::SectionMemoryManager *memManager = NULL;
 
 llvm::TargetMachine *target = NULL;
 
@@ -79,7 +79,7 @@ static void llvm_fatal(void *user_data, const std::string &reason, bool gen_cras
 static Linker *makeLinker()
 {
   return new Linker([] {
-    return std::shared_ptr<llvm::SectionMemoryManager>(&memManager,
+    return std::shared_ptr<llvm::SectionMemoryManager>(memManager,
                                                        [](llvm::SectionMemoryManager *) {});
   });
 }
@@ -89,8 +89,6 @@ static void DeclareGlobalFunctions(llvm::Module *m)
   using namespace llvm;
 
   LLVMContext &c = *context;
-
-  // LLVM implemented functions in globalFunctions
 
   Function::Create(
       FunctionType::get(Type::getVoidTy(c),
@@ -105,7 +103,79 @@ static void DeclareGlobalFunctions(llvm::Module *m)
                         false),
       GlobalValue::ExternalLinkage, "Float4x4TimesVec4", m);
 
-  // C implemented and exported functions
+  Function::Create(
+      FunctionType::get(Type::getVoidTy(c),
+                        {
+                            // float3 mat[3],
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 3), 0),
+                            // float3 vec,
+                            VectorType::get(Type::getFloatTy(c), 3),
+                            // float3 &result,
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 3), 0),
+                        },
+                        false),
+      GlobalValue::ExternalLinkage, "Float3x3TimesVec3", m);
+
+  Function::Create(
+      FunctionType::get(Type::getVoidTy(c),
+                        {
+                            // float4 mat[4],
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                            // float4 vec,
+                            VectorType::get(Type::getFloatTy(c), 4),
+                            // float4 &result,
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                        },
+                        false),
+      GlobalValue::ExternalLinkage, "Vec4TimesFloat4x4", m);
+
+  Function::Create(
+      FunctionType::get(Type::getVoidTy(c),
+                        {
+                            // float3 mat[3],
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 3), 0),
+                            // float3 vec,
+                            VectorType::get(Type::getFloatTy(c), 3),
+                            // float3 &result,
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 3), 0),
+                        },
+                        false),
+      GlobalValue::ExternalLinkage, "Vec3TimesFloat3x3", m);
+
+  Function::Create(
+      FunctionType::get(Type::getVoidTy(c),
+                        {
+                            // float4 a[4],
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                            // float4 b[4],
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                            // float4 *result,
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                        },
+                        false),
+      GlobalValue::ExternalLinkage, "Float4x4TimesFloat4x4", m);
+
+  Function::Create(
+      FunctionType::get(Type::getVoidTy(c),
+                        {
+                            // float4 in[4],
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                            // float4 *result,
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                        },
+                        false),
+      GlobalValue::ExternalLinkage, "Float4x4Transpose", m);
+
+  Function::Create(
+      FunctionType::get(Type::getVoidTy(c),
+                        {
+                            // float4 in[4],
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                            // float4 *result,
+                            PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                        },
+                        false),
+      GlobalValue::ExternalLinkage, "Float4x4Inverse", m);
 
   Function::Create(FunctionType::get(PointerType::get(Type::getInt8Ty(c), 0),
                                      {
@@ -113,6 +183,21 @@ static void DeclareGlobalFunctions(llvm::Module *m)
                                      },
                                      false),
                    GlobalValue::ExternalLinkage, "GetDescriptorBufferPointer", m);
+
+  Function::Create(FunctionType::get(PointerType::get(Type::getVoidTy(c), 0),
+                                     {
+                                         t_GPUStateRef, Type::getInt32Ty(c), Type::getInt32Ty(c),
+                                         PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                                     },
+                                     false),
+                   GlobalValue::ExternalLinkage, "GetVertexAttributeData", m);
+
+  Function::Create(FunctionType::get(PointerType::get(Type::getInt8Ty(c), 0),
+                                     {
+                                         t_GPUStateRef, Type::getInt32Ty(c),
+                                     },
+                                     false),
+                   GlobalValue::ExternalLinkage, "GetPushConstantPointer", m);
 
   Function::Create(FunctionType::get(t_VkImage,
                                      {
@@ -152,6 +237,22 @@ static void DeclareGlobalFunctions(llvm::Module *m)
                                      },
                                      false),
                    GlobalValue::ExternalLinkage, "sample_cube_wrapped", m);
+
+  Function::Create(FunctionType::get(Type::getVoidTy(c),
+                                     {
+                                         // float x
+                                         Type::getFloatTy(c),
+                                         // float y
+                                         Type::getFloatTy(c),
+                                         // float z
+                                         Type::getFloatTy(c),
+                                         // VkImage tex
+                                         t_VkImage,
+                                         // float4 &out
+                                         PointerType::get(VectorType::get(Type::getFloatTy(c), 4), 0),
+                                     },
+                                     false),
+                   GlobalValue::ExternalLinkage, "sample_cube_wrapped", m);
 }
 
 void InitLLVM()
@@ -164,6 +265,8 @@ void InitLLVM()
   InitializeNativeTargetAsmPrinter();
 
   context = new LLVMContext();
+
+  memManager = new llvm::SectionMemoryManager();
 
   target = EngineBuilder().selectTarget();
   globallinker = makeLinker();
@@ -293,21 +396,130 @@ void ShutdownLLVM()
   delete compiler;
   delete globallinker;
   delete target;
+  delete memManager;
   delete context;
 }
 
-extern "C" __declspec(dllexport) void Float4x4TimesVec4(float4 mat[4], const float4 &vec, float4 &out)
+extern "C" __declspec(dllexport) void Float4x4TimesVec4(float *fmat, const float4 &vec, float4 &out)
 {
-  out = {0, 0, 0, 0};
-
-  float *fmat = (float *)mat;
   for(int row = 0; row < 4; row++)
+  {
+    out.v[row] = 0.0f;
     for(int col = 0; col < 4; col++)
       out.v[row] += fmat[col * 4 + row] * vec.v[col];
+  }
 }
 
-extern "C" __declspec(dllexport) byte *GetDescriptorBufferPointer(const GPUState &state,
-                                                                  uint32_t set, uint32_t bind)
+extern "C" __declspec(dllexport) void Float3x3TimesVec3(float *fmat, const float4 &vec, float4 &out)
+{
+  for(int row = 0; row < 3; row++)
+  {
+    out.v[row] = 0.0f;
+    for(int col = 0; col < 3; col++)
+      out.v[row] += fmat[col * 4 + row] * vec.v[col];
+  }
+}
+
+extern "C" __declspec(dllexport) void Vec4TimesFloat4x4(float *fmat, const float4 &vec, float4 &out)
+{
+  for(int row = 0; row < 4; row++)
+  {
+    out.v[row] = 0.0f;
+    for(int col = 0; col < 4; col++)
+      out.v[row] += fmat[row * 4 + col] * vec.v[col];
+  }
+}
+
+extern "C" __declspec(dllexport) void Vec3TimesFloat3x3(float *fmat, const float4 &vec, float4 &out)
+{
+  for(int row = 0; row < 3; row++)
+  {
+    out.v[row] = 0.0f;
+    for(int col = 0; col < 3; col++)
+      out.v[row] += fmat[row * 4 + col] * vec.v[col];
+  }
+}
+
+extern "C" __declspec(dllexport) void Float4x4TimesFloat4x4(const float *a, const float *b, float *out)
+{
+  for(size_t x = 0; x < 4; x++)
+  {
+    for(size_t y = 0; y < 4; y++)
+    {
+      out[x * 4 + y] = b[x * 4 + 0] * a[0 * 4 + y] + b[x * 4 + 1] * a[1 * 4 + y] +
+                       b[x * 4 + 2] * a[2 * 4 + y] + b[x * 4 + 3] * a[3 * 4 + y];
+    }
+  }
+}
+
+extern "C" __declspec(dllexport) void Float4x4Transpose(const float *in, float *out)
+{
+  for(size_t x = 0; x < 4; x++)
+    for(size_t y = 0; y < 4; y++)
+      out[x * 4 + y] = in[y * 4 + x];
+}
+
+extern "C" __declspec(dllexport) void Float4x4Inverse(const float *in, float *out)
+{
+  float a0 = in[0] * in[5] - in[1] * in[4];
+  float a1 = in[0] * in[6] - in[2] * in[4];
+  float a2 = in[0] * in[7] - in[3] * in[4];
+  float a3 = in[1] * in[6] - in[2] * in[5];
+  float a4 = in[1] * in[7] - in[3] * in[5];
+  float a5 = in[2] * in[7] - in[3] * in[6];
+  float b0 = in[8] * in[13] - in[9] * in[12];
+  float b1 = in[8] * in[14] - in[10] * in[12];
+  float b2 = in[8] * in[15] - in[11] * in[12];
+  float b3 = in[9] * in[14] - in[10] * in[13];
+  float b4 = in[9] * in[15] - in[11] * in[13];
+  float b5 = in[10] * in[15] - in[11] * in[14];
+
+  float det = a0 * b5 - a1 * b4 + a2 * b3 + a3 * b2 - a4 * b1 + a5 * b0;
+  if(fabsf(det) > FLT_EPSILON)
+  {
+    out[0] = +in[5] * b5 - in[6] * b4 + in[7] * b3;
+    out[4] = -in[4] * b5 + in[6] * b2 - in[7] * b1;
+    out[8] = +in[4] * b4 - in[5] * b2 + in[7] * b0;
+    out[12] = -in[4] * b3 + in[5] * b1 - in[6] * b0;
+    out[1] = -in[1] * b5 + in[2] * b4 - in[3] * b3;
+    out[5] = +in[0] * b5 - in[2] * b2 + in[3] * b1;
+    out[9] = -in[0] * b4 + in[1] * b2 - in[3] * b0;
+    out[13] = +in[0] * b3 - in[1] * b1 + in[2] * b0;
+    out[2] = +in[13] * a5 - in[14] * a4 + in[15] * a3;
+    out[6] = -in[12] * a5 + in[14] * a2 - in[15] * a1;
+    out[10] = +in[12] * a4 - in[13] * a2 + in[15] * a0;
+    out[14] = -in[12] * a3 + in[13] * a1 - in[14] * a0;
+    out[3] = -in[9] * a5 + in[10] * a4 - in[11] * a3;
+    out[7] = +in[8] * a5 - in[10] * a2 + in[11] * a1;
+    out[11] = -in[8] * a4 + in[9] * a2 - in[11] * a0;
+    out[15] = +in[8] * a3 - in[9] * a1 + in[10] * a0;
+
+    float invDet = 1.0f / det;
+    out[0] *= invDet;
+    out[1] *= invDet;
+    out[2] *= invDet;
+    out[3] *= invDet;
+    out[4] *= invDet;
+    out[5] *= invDet;
+    out[6] *= invDet;
+    out[7] *= invDet;
+    out[8] *= invDet;
+    out[9] *= invDet;
+    out[10] *= invDet;
+    out[11] *= invDet;
+    out[12] *= invDet;
+    out[13] *= invDet;
+    out[14] *= invDet;
+    out[15] *= invDet;
+
+    return;
+  }
+
+  memset(out, 0, sizeof(float) * 16);
+}
+
+extern "C" __declspec(dllexport) const byte *GetDescriptorBufferPointer(const GPUState &state,
+                                                                        uint32_t set, uint32_t bind)
 {
   assert(set == 0);
   const VkDescriptorBufferInfo &buf = state.set->binds[bind].data.bufferInfo;
@@ -320,6 +532,61 @@ extern "C" __declspec(dllexport) VkImage
 {
   assert(set == 0);
   return state.set->binds[bind].data.imageInfo.imageView->image;
+}
+
+extern "C" __declspec(dllexport) const byte *GetPushConstantPointer(const GPUState &state,
+                                                                    uint32_t offset)
+{
+  return state.pushconsts + offset;
+}
+
+extern "C" __declspec(dllexport) void GetVertexAttributeData(const GPUState &state,
+                                                             uint32_t vertexIndex, uint32_t attr,
+                                                             float4 &out)
+{
+  out = float4(0, 0, 0, 1);
+
+  uint32_t vb = state.pipeline->vattrs[attr].vb;
+  byte *ptr = state.vbs[vb].buffer->bytes + state.vbs[vb].offset;
+
+  ptr += state.pipeline->vattrs[attr].offset;
+  ptr += state.pipeline->vattrs[attr].stride * vertexIndex;
+
+  float *f32 = (float *)ptr;
+  uint32_t *u32 = (uint32_t *)ptr;
+
+  switch(state.pipeline->vattrs[attr].format)
+  {
+    case VK_FORMAT_R32G32B32A32_SFLOAT:
+    {
+      out.w = f32[3];
+      // deliberate fallthrough
+    }
+    case VK_FORMAT_R32G32B32_SFLOAT:
+    {
+      out.z = f32[2];
+      // deliberate fallthrough
+    }
+    case VK_FORMAT_R32G32_SFLOAT:
+    {
+      out.y = f32[1];
+      // deliberate fallthrough
+    }
+    case VK_FORMAT_R32_SFLOAT:
+    {
+      out.x = f32[0];
+      break;
+    }
+    case VK_FORMAT_R8G8B8A8_UNORM:
+    {
+      out.x = float((u32[0] & 0x000000ff) >> 0x00) / 255.0f;
+      out.y = float((u32[0] & 0x0000ff00) >> 0x08) / 255.0f;
+      out.z = float((u32[0] & 0x00ff0000) >> 0x10) / 255.0f;
+      out.w = float((u32[0] & 0xff000000) >> 0x18) / 255.0f;
+      break;
+    }
+    default: assert(false && "Unhandled vertex attribute format");
+  }
 }
 
 llvm::Value *CreateDot(llvm::IRBuilder<> &builder, llvm::Value *a, llvm::Value *b, int numcomps)
@@ -365,7 +632,8 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
   DeclareGlobalFunctions(m);
 
   std::vector<Function *> functions;
-  Function *function = NULL;
+  Function *curfunc = NULL;
+  Argument *functionargs = NULL;
 
   IRBuilder<> builder(c, ConstantFolder());
 
@@ -381,7 +649,7 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
     bool operator<(const IDDecoration &o) const { return id < o.id; }
   };
   std::vector<IDDecoration> decorations;
-  std::set<uint32_t> blocks;
+  std::set<uint32_t> blocks, cube;
 
   // in lieu of a proper SPIR-V representation, this lets us go from pointer type -> struct type
   std::map<uint32_t, uint32_t> ptrtypes;
@@ -422,7 +690,7 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
   const uint32_t *opStart = pCode + 5;
   const uint32_t *opEnd = pCode + codeSize;
 
-  // we do two passes:
+  // we do three passes to make things easier for instruction generation:
   // 1. Gather information:
   //    - Parse types and create corresponding LLVM types
   //    - Generate LLVM constants immediately
@@ -432,7 +700,14 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
   //
   // Generate global struct here.
   //
+  // 2. Function-only pass. Find functions and create them (so that if we encounter a function call
+  //    going forward we already have the Function* ready for it). Within each function, create all
+  //    basic blocks (again so that forward branches already have the blocks ready).
+  //
   // 2. Process and generate LLVM functions and globals
+  //
+  // After this we generate wrapper entry points that fetch and populate globals, but that doesn't
+  // iterate over SPIR-V it just uses data gathered before.
 
   pCode = opStart;
   while(pCode < opEnd)
@@ -518,6 +793,11 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
           types[pCode[1]] = Type::getDoubleTy(c);
         break;
       }
+      case spv::OpTypeBool:
+      {
+        types[pCode[1]] = Type::getInt1Ty(c);
+        break;
+      }
       case spv::OpTypeInt:
       {
         types[pCode[1]] = IntegerType::get(c, pCode[2]);
@@ -547,7 +827,8 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
 
         // if the pointed type is a block and this is a uniform pointer, propagate that to the
         // pointer
-        if(blocks.find(pCode[3]) != blocks.end() && pCode[2] == spv::StorageClassUniform)
+        if(blocks.find(pCode[3]) != blocks.end() &&
+           (pCode[2] == spv::StorageClassUniform || pCode[2] == spv::StorageClassPushConstant))
           blocks.insert(pCode[1]);
 
         ptrtypes[pCode[1]] = pCode[3];
@@ -574,6 +855,11 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
       case spv::OpTypeImage:
       case spv::OpTypeSampledImage:
       {
+        if(opcode == spv::OpTypeImage && pCode[3] == spv::DimCube)
+          cube.insert(pCode[1]);
+        else if(opcode == spv::OpTypeSampledImage && cube.find(pCode[2]) != cube.end())
+          cube.insert(pCode[1]);
+
         // TODO proper image handling
         types[pCode[1]] = t_VkImage;
         break;
@@ -645,6 +931,52 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
     it->second.params.insert(it->second.params.begin(), PointerType::get(globalStructType, 0));
   }
 
+  std::map<uint32_t, Function *> functiondefs;
+  std::map<uint32_t, BasicBlock *> labels;
+
+  pCode = opStart;
+  while(pCode < opEnd)
+  {
+    uint16_t WordCount = pCode[0] >> spv::WordCountShift;
+
+    spv::Op opcode = spv::Op(pCode[0] & spv::OpCodeMask);
+
+    switch(opcode)
+    {
+      case spv::OpFunction:
+      {
+        sprintf_s(uniq_name, "%p_%d", ret, pCode[2]);
+
+        if(types[pCode[4]] == NULL)
+        {
+          const FunctionTypeInfo &f = functypes[pCode[4]];
+          types[pCode[4]] = FunctionType::get(f.ret, f.params, false);
+        }
+
+        curfunc = Function::Create((llvm::FunctionType *)types[pCode[4]],
+                                   llvm::GlobalValue::InternalLinkage, uniq_name, m);
+
+        functiondefs[pCode[2]] = curfunc;
+        break;
+      }
+      case spv::OpFunctionEnd:
+      {
+        curfunc = NULL;
+        break;
+      }
+      case spv::OpLabel:
+      {
+        sprintf_s(uniq_name, "%p_%d", ret, pCode[1]);
+
+        assert(curfunc);
+        labels[pCode[1]] = BasicBlock::Create(c, uniq_name, curfunc, NULL);
+        break;
+      }
+    }
+
+    pCode += WordCount;
+  }
+
   uint64_t globalsIndex = 0;
   Value *globalStruct = NULL;
 
@@ -692,6 +1024,7 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
       case spv::OpConstantComposite:
       case spv::OpConstant:
       case spv::OpTypeVoid:
+      case spv::OpTypeBool:
       case spv::OpTypeInt:
       case spv::OpTypeFloat:
       case spv::OpTypeVector:
@@ -713,7 +1046,7 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
 
       case spv::OpVariable:
       {
-        if(function)
+        if(curfunc)
         {
           assert(pCode[3] == spv::StorageClassFunction);
           values[pCode[2]] = builder.CreateAlloca(types[pCode[1]]->getPointerElementType(), NULL,
@@ -739,7 +1072,7 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
             it = std::lower_bound(decorations.begin(), decorations.end(), search);
           }
 
-          if(pCode[3] <= spv::StorageClassOutput)
+          if(pCode[3] <= spv::StorageClassOutput || pCode[3] == spv::StorageClassPushConstant)
           {
             for(; it != decorations.end() && it->id == search.id; ++it)
               externals.push_back({(spv::StorageClass)pCode[3], values[pCode[2]], *it});
@@ -755,63 +1088,122 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
 
       case spv::OpFunction:
       {
-        sprintf_s(uniq_name, "%p_%d", ret, pCode[2]);
+        curfunc = functiondefs[pCode[2]];
 
-        if(types[pCode[4]] == NULL)
-        {
-          const FunctionTypeInfo &f = functypes[pCode[4]];
-          types[pCode[4]] = FunctionType::get(f.ret, f.params, false);
-        }
-
-        function = Function::Create((llvm::FunctionType *)types[pCode[4]],
-                                    llvm::GlobalValue::InternalLinkage, uniq_name, m);
-
-        function->addFnAttr(Attribute::AlwaysInline);
+        curfunc->addFnAttr(Attribute::AlwaysInline);
 
         // ignore function return type pCode[1]
         // ignore function control pCode[3]
-        functions.push_back(function);
+        functions.push_back(curfunc);
 
-        globalStruct = function->arg_begin();
+        functionargs = curfunc->arg_begin();
 
-        values[pCode[2]] = function;
+        // globals is always the first implicit arg
+        globalStruct = functionargs;
+        functionargs++;
+
+        values[pCode[2]] = curfunc;
+        break;
+      }
+      case spv::OpFunctionParameter:
+      {
+        values[pCode[2]] = functionargs;
+        functionargs++;
         break;
       }
       case spv::OpFunctionEnd:
       {
-        assert(function);
+        assert(curfunc);
 
         std::string str;
         raw_string_ostream os(str);
 
         str.clear();
-        if(verifyFunction(*function, &os))
+        if(verifyFunction(*curfunc, &os))
         {
           printf("Function did not verify: %s\n", os.str().c_str());
           assert(false);
         }
 
-        function = NULL;
+        curfunc = NULL;
         globalStruct = NULL;
         break;
       }
 
       ////////////////////////////////////////////////
-      // Instructions
+      // Logic Instructions
+      ////////////////////////////////////////////////
+
+      case spv::OpFOrdLessThan:
+      {
+        values[pCode[2]] = builder.CreateFCmpOLT(values[pCode[3]], values[pCode[4]]);
+        break;
+      }
+      case spv::OpFOrdGreaterThan:
+      {
+        values[pCode[2]] = builder.CreateFCmpOGT(values[pCode[3]], values[pCode[4]]);
+        break;
+      }
+
+      ////////////////////////////////////////////////
+      // Flow control Instructions
       ////////////////////////////////////////////////
 
       case spv::OpLabel:
       {
-        assert(function);
-        BasicBlock *block = BasicBlock::Create(c, "block", function, NULL);
-        builder.SetInsertPoint(block);
+        assert(curfunc);
+        builder.SetInsertPoint(labels[pCode[1]]);
         break;
       }
+      case spv::OpBranch:
+      {
+        builder.CreateBr(labels[pCode[1]]);
+        break;
+      }
+      case spv::OpSelectionMerge:
+      {
+        // don't need to do anything
+        break;
+      }
+      case spv::OpBranchConditional:
+      {
+        builder.CreateCondBr(values[pCode[1]], labels[pCode[2]], labels[pCode[3]]);
+        break;
+      }
+      case spv::OpFunctionCall:
+      {
+        // always pass implicit global struct
+        std::vector<Value *> args = {globalStruct};
+        for(uint16_t i = 4; i < WordCount; i++)
+          args.push_back(values[pCode[i]]);
+        values[pCode[2]] = builder.CreateCall(functiondefs[pCode[3]], args);
+        break;
+      }
+      case spv::OpReturn:
+      {
+        assert(curfunc);
+        builder.CreateRetVoid();
+        break;
+      }
+      case spv::OpReturnValue:
+      {
+        assert(curfunc);
+        builder.CreateRet(values[pCode[1]]);
+        break;
+      }
+
+      ////////////////////////////////////////////////
+      // Memory access Instructions
+      ////////////////////////////////////////////////
+
       case spv::OpLoad:
       {
         values[pCode[2]] = builder.CreateLoad(getvalue(values[pCode[3]]));
-        // ignore result type pCode[1]
         // ignore memory access pCode[4]
+
+        if(cube.find(pCode[1]) != cube.end())
+          cube.insert(pCode[2]);
+
         break;
       }
       case spv::OpStore:
@@ -838,29 +1230,125 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         // ignore memory access pCode[3]
         break;
       }
+
+      ////////////////////////////////////////////////
+      // Maths Instructions
+      ////////////////////////////////////////////////
+
+      case spv::OpVectorTimesMatrix:
       case spv::OpMatrixTimesVector:
       {
+        Value *mat = NULL, *vec = NULL;
+
+        if(opcode == spv::OpMatrixTimesVector)
+        {
+          mat = values[pCode[3]];
+          vec = values[pCode[4]];
+        }
+        else
+        {
+          vec = values[pCode[3]];
+          mat = values[pCode[4]];
+        }
+
         // create output value
-        Value *retptr = builder.CreateAlloca(values[pCode[4]]->getType());
+        Value *retptr = builder.CreateAlloca(vec->getType());
 
         // create temporary array
-        Value *arrayptr = builder.CreateAlloca(values[pCode[3]]->getType());
+        Value *arrayptr = builder.CreateAlloca(mat->getType());
 
         // fill temporary array with values
-        for(unsigned i = 0; i < values[pCode[3]]->getType()->getArrayNumElements(); i++)
+        for(unsigned i = 0; i < mat->getType()->getArrayNumElements(); i++)
         {
-          builder.CreateStore(
-              builder.CreateExtractValue(values[pCode[3]], {i}),
-              builder.CreateConstInBoundsGEP2_32(values[pCode[3]]->getType(), arrayptr, 0, i));
+          builder.CreateStore(builder.CreateExtractValue(mat, {i}),
+                              builder.CreateConstInBoundsGEP2_32(mat->getType(), arrayptr, 0, i));
         }
+
+        unsigned vecsize = types[pCode[1]]->getVectorNumElements();
+
+        // only support square matrix multiplies
+        assert(vecsize == mat->getType()->getArrayNumElements());
+        assert(vecsize == mat->getType()->getArrayElementType()->getVectorNumElements());
+
+        Function *mulfunc = NULL;
+
+        if(vecsize == 3)
+        {
+          mulfunc = m->getFunction("Float3x3TimesVec3");
+          if(opcode == spv::OpVectorTimesMatrix)
+            mulfunc = m->getFunction("Vec3TimesFloat3x3");
+        }
+        else if(vecsize == 4)
+        {
+          mulfunc = m->getFunction("Float4x4TimesVec4");
+          if(opcode == spv::OpVectorTimesMatrix)
+            mulfunc = m->getFunction("Vec4TimesFloat4x4");
+        }
+
+        assert(mulfunc);
 
         // call function
         builder.CreateCall(
-            m->getFunction("Float4x4TimesVec4"),
+            mulfunc,
             {
-                builder.CreateConstInBoundsGEP2_32(values[pCode[3]]->getType(), arrayptr, 0, 0),
-                values[pCode[4]], retptr,
+                builder.CreateConstInBoundsGEP2_32(mat->getType(), arrayptr, 0, 0), vec, retptr,
             });
+
+        // load return value
+        values[pCode[2]] = builder.CreateLoad(retptr);
+        break;
+      }
+      case spv::OpMatrixTimesMatrix:
+      {
+        // create output value
+        Value *retptr = builder.CreateAlloca(types[pCode[1]]);
+
+        // create temporary arrays
+        Value *aptr = builder.CreateAlloca(types[pCode[1]]);
+        Value *bptr = builder.CreateAlloca(types[pCode[1]]);
+
+        // fill temporary array with values
+        for(unsigned i = 0; i < types[pCode[1]]->getArrayNumElements(); i++)
+        {
+          builder.CreateStore(builder.CreateExtractValue(values[pCode[3]], {i}),
+                              builder.CreateConstInBoundsGEP2_32(types[pCode[1]], aptr, 0, i));
+          builder.CreateStore(builder.CreateExtractValue(values[pCode[4]], {i}),
+                              builder.CreateConstInBoundsGEP2_32(types[pCode[1]], bptr, 0, i));
+        }
+
+        // call function
+        builder.CreateCall(m->getFunction("Float4x4TimesFloat4x4"),
+                           {
+                               builder.CreateConstInBoundsGEP2_32(types[pCode[1]], aptr, 0, 0),
+                               builder.CreateConstInBoundsGEP2_32(types[pCode[1]], bptr, 0, 0),
+                               builder.CreateConstInBoundsGEP2_32(types[pCode[1]], retptr, 0, 0),
+                           });
+
+        // load return value
+        values[pCode[2]] = builder.CreateLoad(retptr);
+        break;
+      }
+      case spv::OpTranspose:
+      {
+        // create output value
+        Value *retptr = builder.CreateAlloca(types[pCode[1]]);
+
+        // create temporary array
+        Value *matptr = builder.CreateAlloca(types[pCode[1]]);
+
+        // fill temporary array with values
+        for(unsigned i = 0; i < types[pCode[1]]->getArrayNumElements(); i++)
+        {
+          builder.CreateStore(builder.CreateExtractValue(values[pCode[3]], {i}),
+                              builder.CreateConstInBoundsGEP2_32(types[pCode[1]], matptr, 0, i));
+        }
+
+        // call function
+        builder.CreateCall(m->getFunction("Float4x4Transpose"),
+                           {
+                               builder.CreateConstInBoundsGEP2_32(types[pCode[1]], matptr, 0, 0),
+                               builder.CreateConstInBoundsGEP2_32(types[pCode[1]], retptr, 0, 0),
+                           });
 
         // load return value
         values[pCode[2]] = builder.CreateLoad(retptr);
@@ -873,12 +1361,24 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         values[pCode[2]] = builder.CreateFMul(values[pCode[3]], splat);
         break;
       }
-      case spv::OpVectorShuffle:
+      case spv::OpFMul:
       {
-        std::vector<uint32_t> indices;
-        for(uint16_t i = 5; i < WordCount; i++)
-          indices.push_back(pCode[i]);
-        values[pCode[2]] = builder.CreateShuffleVector(values[pCode[3]], values[pCode[4]], indices);
+        values[pCode[2]] = builder.CreateFMul(values[pCode[3]], values[pCode[4]]);
+        break;
+      }
+      case spv::OpFAdd:
+      {
+        values[pCode[2]] = builder.CreateFAdd(values[pCode[3]], values[pCode[4]]);
+        break;
+      }
+      case spv::OpFSub:
+      {
+        values[pCode[2]] = builder.CreateFSub(values[pCode[3]], values[pCode[4]]);
+        break;
+      }
+      case spv::OpFNegate:
+      {
+        values[pCode[2]] = builder.CreateFNeg(values[pCode[3]]);
         break;
       }
       case spv::OpDPdx:
@@ -915,6 +1415,21 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
                 a, b);
             break;
           }
+          case GLSLstd450FClamp:
+          {
+            assert(WordCount == 8);
+            Value *val = ARG(0);
+            Value *lowerBound = ARG(1);
+            Value *upperBound = ARG(1);
+
+            Value *upperClamped =
+                builder.CreateSelect(builder.CreateFCmpOLT(val, upperBound), val, upperBound);
+
+            values[pCode[2]] =
+                builder.CreateSelect(builder.CreateFCmpOGT(val, lowerBound), val, lowerBound);
+
+            break;
+          }
           case GLSLstd450Normalize:
           {
             assert(WordCount == 6);
@@ -933,6 +1448,73 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
             assert(WordCount == 7);
             // TODO
             values[pCode[2]] = ARG(0);
+            break;
+          }
+          case GLSLstd450Pow:
+          {
+            assert(WordCount == 7);
+            Value *x = ARG(0);
+            Value *y = ARG(1);
+            Value *pow = Intrinsic::getDeclaration(m, Intrinsic::pow, {Type::getFloatTy(c)});
+            if(types[pCode[1]]->isVectorTy())
+            {
+              // vectors are calculated component-wise
+              Value *vec = UndefValue::get(types[pCode[1]]);
+              for(unsigned v = 0; v < types[pCode[1]]->getVectorNumElements(); v++)
+              {
+                Value *result = builder.CreateCall(
+                    pow, {
+                             builder.CreateExtractElement(x, v), builder.CreateExtractElement(y, v),
+                         });
+                vec = builder.CreateInsertElement(vec, result, v);
+              }
+              values[pCode[2]] = vec;
+            }
+            else
+            {
+              values[pCode[2]] = builder.CreateCall(pow, {x, y});
+            }
+            break;
+          }
+          case GLSLstd450Reflect:
+          {
+            assert(WordCount == 7);
+            Value *I = ARG(0);
+            Value *N = ARG(1);
+            Value *NdotI = CreateDot(builder, I, N, I->getType()->getVectorNumElements());
+            Value *NdotI2 = builder.CreateFMul(NdotI, ConstantFP::get(Type::getFloatTy(c), 2.0f));
+            Value *splat = builder.CreateVectorSplat(I->getType()->getVectorNumElements(), NdotI2);
+            Value *Nsplat = builder.CreateFMul(splat, N);
+            // result = I - 2 * dot(N, I) * N
+            values[pCode[2]] = builder.CreateFSub(I, Nsplat);
+            break;
+          }
+          case GLSLstd450MatrixInverse:
+          {
+            assert(WordCount == 6);
+            Value *mat = ARG(0);
+            // create output value
+            Value *retptr = builder.CreateAlloca(types[pCode[1]]);
+
+            // create temporary array
+            Value *matptr = builder.CreateAlloca(types[pCode[1]]);
+
+            // fill temporary array with values
+            for(unsigned i = 0; i < types[pCode[1]]->getArrayNumElements(); i++)
+            {
+              builder.CreateStore(builder.CreateExtractValue(mat, {i}),
+                                  builder.CreateConstInBoundsGEP2_32(types[pCode[1]], matptr, 0, i));
+            }
+
+            // call function
+            builder.CreateCall(m->getFunction("Float4x4Transpose"),
+                               {
+                                   builder.CreateConstInBoundsGEP2_32(types[pCode[1]], matptr, 0, 0),
+                                   builder.CreateConstInBoundsGEP2_32(types[pCode[1]], retptr, 0, 0),
+                               });
+
+            // load return value
+            values[pCode[2]] = builder.CreateLoad(retptr);
             break;
           }
           default:
@@ -954,34 +1536,95 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
                                      values[pCode[3]]->getType()->getVectorNumElements());
         break;
       }
+
+      ////////////////////////////////////////////////
+      // Aggregate Instructions
+      ////////////////////////////////////////////////
+
+      case spv::OpCompositeExtract:
+      {
+        if(WordCount == 5)
+        {
+          values[pCode[2]] = builder.CreateExtractElement(values[pCode[3]], pCode[4]);
+        }
+        else if(WordCount == 6)
+        {
+          Value *subel = builder.CreateExtractValue(values[pCode[3]], {pCode[4]});
+          values[pCode[2]] = builder.CreateExtractElement(subel, pCode[5]);
+        }
+        break;
+      }
+      case spv::OpCompositeConstruct:
+      {
+        Type *vecType = types[pCode[1]];
+        values[pCode[2]] = UndefValue::get(vecType);
+        for(uint16_t i = 0; i < WordCount - 3; i++)
+        {
+          // is matrix
+          if(vecType->isArrayTy())
+            values[pCode[2]] = builder.CreateInsertValue(values[pCode[2]], values[pCode[3 + i]], {i});
+          else
+            values[pCode[2]] = builder.CreateInsertElement(values[pCode[2]], values[pCode[3 + i]], i);
+        }
+
+        break;
+      }
+      case spv::OpVectorShuffle:
+      {
+        std::vector<uint32_t> indices;
+        for(uint16_t i = 5; i < WordCount; i++)
+          indices.push_back(pCode[i]);
+        values[pCode[2]] = builder.CreateShuffleVector(values[pCode[3]], values[pCode[4]], indices);
+        break;
+      }
+
+      ////////////////////////////////////////////////
+      // Texture Instructions
+      ////////////////////////////////////////////////
+
       case spv::OpImageSampleImplicitLod:
       {
+        // TODO proper
         Value *retptr = builder.CreateAlloca(types[pCode[1]]);
 
-        // call function
-        builder.CreateCall(m->getFunction("sample_tex_wrapped"),
-                           {
-                               // u
-                               builder.CreateExtractElement(values[pCode[4]], 0ULL),
-                               // v
-                               builder.CreateExtractElement(values[pCode[4]], 1ULL),
-                               // tex
-                               values[pCode[3]],
-                               // byteOffset
-                               ConstantInt::get(Type::getInt64Ty(c), 0),
-                               // out
-                               retptr,
-                           });
+        if(cube.find(pCode[3]) != cube.end())
+        {
+          // call function
+          builder.CreateCall(m->getFunction("sample_cube_wrapped"),
+                             {
+                                 // x
+                                 builder.CreateExtractElement(values[pCode[4]], 0ULL),
+                                 // y
+                                 builder.CreateExtractElement(values[pCode[4]], 1ULL),
+                                 // z
+                                 builder.CreateExtractElement(values[pCode[4]], 2ULL),
+                                 // tex
+                                 values[pCode[3]],
+                                 // out
+                                 retptr,
+                             });
+        }
+        else
+        {
+          // call function
+          builder.CreateCall(m->getFunction("sample_tex_wrapped"),
+                             {
+                                 // u
+                                 builder.CreateExtractElement(values[pCode[4]], 0ULL),
+                                 // v
+                                 builder.CreateExtractElement(values[pCode[4]], 1ULL),
+                                 // tex
+                                 values[pCode[3]],
+                                 // byteOffset
+                                 ConstantInt::get(Type::getInt64Ty(c), 0),
+                                 // out
+                                 retptr,
+                             });
+        }
 
         // load return value
         values[pCode[2]] = builder.CreateLoad(retptr);
 
-        break;
-      }
-      case spv::OpReturn:
-      {
-        assert(function);
-        builder.CreateRetVoid();
         break;
       }
 
@@ -1034,9 +1677,14 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         if(ext.decoration.dec == spv::DecorationBuiltIn)
         {
           spv::BuiltIn b = (spv::BuiltIn)ext.decoration.param;
-          if(b == spv::BuiltInVertexIndex)
+          if(b == spv::BuiltInVertexIndex || b == spv::BuiltInVertexId)
           {
             builder.CreateStore(vtxidx, val);
+          }
+          else if(b == spv::BuiltInInstanceIndex || b == spv::BuiltInInstanceId)
+          {
+            // TODO if the shader actually uses this
+            builder.CreateStore(ConstantInt::get(Type::getInt32Ty(c), 0), val);
           }
           else
           {
@@ -1046,7 +1694,22 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         }
         else if(ext.decoration.dec == spv::DecorationLocation)
         {
-          // TODO populate input values from VBs
+          Value *outvec4 = builder.CreateAlloca(VectorType::get(Type::getFloatTy(c), 4));
+
+          builder.CreateCall(m->getFunction("GetVertexAttributeData"),
+                             {
+                                 gpustate, vtxidx,
+                                 ConstantInt::get(Type::getInt32Ty(c), ext.decoration.param), outvec4,
+                             });
+
+          Value *outval = builder.CreateLoad(outvec4);
+
+          std::vector<uint32_t> shuf = {0, 1, 2, 3};
+          shuf.resize(val->getType()->getPointerElementType()->getVectorNumElements());
+
+          Value *truncval = builder.CreateShuffleVector(outval, outval, shuf);
+
+          builder.CreateStore(truncval, val);
         }
         else if(ext.decoration.dec == spv::DecorationDescriptorSet)
         {
@@ -1063,6 +1726,22 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
               getfunc, {
                            gpustate, ConstantInt::get(Type::getInt32Ty(c), descset[id]),
                            ConstantInt::get(Type::getInt32Ty(c), ext.decoration.param),
+                       });
+
+          Value *bufptr = builder.CreatePointerCast(byteptr, val->getType()->getPointerElementType());
+
+          builder.CreateStore(bufptr, val);
+        }
+        else if(ext.decoration.dec == spv::DecorationOffset &&
+                ext.storageClass == spv::StorageClassPushConstant)
+        {
+          Function *getfunc = m->getFunction("GetPushConstantPointer");
+
+          assert(blocks.find(id) != blocks.end());
+
+          Value *byteptr = builder.CreateCall(
+              getfunc, {
+                           gpustate, ConstantInt::get(Type::getInt32Ty(c), ext.decoration.param),
                        });
 
           Value *bufptr = builder.CreatePointerCast(byteptr, val->getType()->getPointerElementType());
@@ -1105,6 +1784,10 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
               mask[i] = 0;
             val = builder.CreateShuffleVector(val, val, mask);
           }
+          else if(val->getType()->isFloatTy())
+          {
+            val = builder.CreateVectorSplat(4, val);
+          }
 
           builder.CreateStore(
               val, builder.CreateConstInBoundsGEP2_32(interp->getType()->getPointerElementType(),
@@ -1117,6 +1800,7 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
             case spv::BuiltInPosition: builder.CreateStore(val, outpos); break;
             case spv::BuiltInPointSize:
             case spv::BuiltInClipDistance:
+            case spv::BuiltInCullDistance:
             {
               // TODO
               break;
@@ -1176,8 +1860,8 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         }
         else if(ext.decoration.dec == spv::DecorationLocation)
         {
-          Type *vecType = val->getType()->getPointerElementType();
-          Value *interp = UndefValue::get(vecType);
+          Type *interpType = val->getType()->getPointerElementType();
+          Value *interp = NULL;
 
           uint32_t loc = ext.decoration.param;
 
@@ -1196,23 +1880,40 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
                                                }));
           }
 
-          // for each component, dot() the barycentric co-ords with the component from each
-          // verts'
-          // vector
-          for(unsigned i = 0; i < vecType->getVectorNumElements(); i++)
+          if(interpType->isVectorTy())
+          {
+            // for each component, dot() the barycentric co-ords with the component from each
+            // verts' vector
+            interp = UndefValue::get(interpType);
+
+            for(unsigned i = 0; i < interpType->getVectorNumElements(); i++)
+            {
+              Value *compValue = Constant::getNullValue(VectorType::get(Type::getFloatTy(c), 4));
+
+              for(unsigned comp = 0; comp < 3; comp++)
+              {
+                compValue = builder.CreateInsertElement(
+                    compValue, builder.CreateExtractElement(vertVec[comp], i),
+                    ConstantInt::get(Type::getInt32Ty(c), comp));
+              }
+
+              Value *interpComp = CreateDot(builder, loadedBary, compValue, 4);
+              interp = builder.CreateInsertElement(interp, interpComp,
+                                                   ConstantInt::get(Type::getInt32Ty(c), i));
+            }
+          }
+          else
           {
             Value *compValue = Constant::getNullValue(VectorType::get(Type::getFloatTy(c), 4));
 
             for(unsigned comp = 0; comp < 3; comp++)
             {
-              compValue = builder.CreateInsertElement(compValue,
-                                                      builder.CreateExtractElement(vertVec[comp], i),
-                                                      ConstantInt::get(Type::getInt32Ty(c), comp));
+              compValue = builder.CreateInsertElement(
+                  compValue, builder.CreateExtractElement(vertVec[comp], 0LLU),
+                  ConstantInt::get(Type::getInt32Ty(c), comp));
             }
 
-            Value *interpComp = CreateDot(builder, loadedBary, compValue, 4);
-            interp = builder.CreateInsertElement(interp, interpComp,
-                                                 ConstantInt::get(Type::getInt32Ty(c), i));
+            interp = CreateDot(builder, loadedBary, compValue, 4);
           }
 
           builder.CreateStore(interp, val);

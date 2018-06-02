@@ -20,7 +20,6 @@
     <ClCompile Include="stats.cpp" />
     <ClCompile Include="descriptors.cpp" />
     <ClCompile Include="shaders.cpp" />
-    <ClCompile Include="premade_shaders.cpp" />
     <ClCompile Include="texture_sampling.cpp" />
     <ClCompile Include="3rdparty\decompress.c">
       <Filter>3rdparty\decompress</Filter>

@@ -177,7 +177,6 @@
     <ClCompile Include="cmd_record.cpp" />
     <ClCompile Include="descriptors.cpp" />
     <ClCompile Include="images.cpp" />
-    <ClCompile Include="premade_shaders.cpp" />
     <ClCompile Include="query.cpp" />
     <ClCompile Include="icd_stubs.cpp" />
     <ClCompile Include="cmd_exec.cpp" />

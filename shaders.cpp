@@ -8,17 +8,10 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateShaderModule(VkDevice device,
 {
   VkShaderModule ret = new VkShaderModule_T;
 
-  uint32_t hash = hashSPV(pCreateInfo->pCode, pCreateInfo->codeSize / sizeof(uint32_t));
+  ret->handle = CompileFunction(pCreateInfo->pCode, pCreateInfo->codeSize / sizeof(uint32_t));
 
-  ret->func = GetPremadeShader(hash);
-
-  if(ret->func == NULL)
-  {
-    ret->handle = CompileFunction(pCreateInfo->pCode, pCreateInfo->codeSize / sizeof(uint32_t));
-
-    if(ret->handle == NULL)
-      return VK_ERROR_DEVICE_LOST;
-  }
+  if(ret->handle == NULL)
+    return VK_ERROR_DEVICE_LOST;
 
   *pShaderModule = ret;
   return VK_SUCCESS;
@@ -39,6 +32,27 @@ vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32
   for(uint32_t i = 0; i < createInfoCount; i++)
   {
     VkPipeline ret = new VkPipeline_T;
+
+    uint32_t strides[16] = {0};
+
+    for(uint32_t vb = 0; vb < pCreateInfos[i].pVertexInputState->vertexBindingDescriptionCount; vb++)
+    {
+      const VkVertexInputBindingDescription &bind =
+          pCreateInfos[i].pVertexInputState->pVertexBindingDescriptions[vb];
+
+      strides[bind.binding] = bind.stride;
+    }
+
+    for(uint32_t va = 0; va < pCreateInfos[i].pVertexInputState->vertexAttributeDescriptionCount; va++)
+    {
+      const VkVertexInputAttributeDescription &attr =
+          pCreateInfos[i].pVertexInputState->pVertexAttributeDescriptions[va];
+
+      ret->vattrs[attr.location].vb = attr.binding;
+      ret->vattrs[attr.location].format = attr.format;
+      ret->vattrs[attr.location].offset = attr.offset;
+      ret->vattrs[attr.location].stride = strides[attr.binding];
+    }
 
     ret->topology = pCreateInfos[i].pInputAssemblyState->topology;
     ret->frontFace = pCreateInfos[i].pRasterizationState->frontFace;
@@ -64,17 +78,11 @@ vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32
       VkShaderModule mod = pCreateInfos[i].pStages[s].module;
       if(pCreateInfos[i].pStages[s].stage == VK_SHADER_STAGE_VERTEX_BIT)
       {
-        if(mod->func)
-          ret->vs = (VertexShader)mod->func;
-        else
-          ret->vs = (VertexShader)GetFuncPointer(mod->handle, pCreateInfos[i].pStages[s].pName);
+        ret->vs = (VertexShader)GetFuncPointer(mod->handle, pCreateInfos[i].pStages[s].pName);
       }
       else if(pCreateInfos[i].pStages[s].stage == VK_SHADER_STAGE_FRAGMENT_BIT)
       {
-        if(mod->func)
-          ret->fs = (FragmentShader)mod->func;
-        else
-          ret->fs = (FragmentShader)GetFuncPointer(mod->handle, pCreateInfos[i].pStages[s].pName);
+        ret->fs = (FragmentShader)GetFuncPointer(mod->handle, pCreateInfos[i].pStages[s].pName);
       }
     }
     pPipelines[i] = ret;

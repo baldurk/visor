@@ -9,7 +9,6 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateInstance(const VkInstanceCreateInfo *pCre
   *pInstance = (VkInstance) new VK_LOADER_DATA;
   set_loader_magic_value(*pInstance);
   InitFrameStats();
-  InitPremadeShaders();
   InitRasterThreads();
   InitLLVM();
   return VK_SUCCESS;

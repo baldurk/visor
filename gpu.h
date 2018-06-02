@@ -12,6 +12,7 @@ struct GPUState
   {
     VkBuffer buffer;
     VkDeviceSize offset;
+    VkDeviceSize stride;
   } vbs[4];
   VkViewport view;
   VkImage col[8];

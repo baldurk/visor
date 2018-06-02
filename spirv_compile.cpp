@@ -35,6 +35,8 @@
 
 typedef llvm::orc::RTDyldObjectLinkingLayer Linker;
 
+#define DEBUG_SPIRV 0
+
 namespace
 {
 llvm::LLVMContext *context = NULL;
@@ -89,6 +91,18 @@ static void DeclareGlobalFunctions(llvm::Module *m)
   using namespace llvm;
 
   LLVMContext &c = *context;
+
+  Function::Create(FunctionType::get(Type::getVoidTy(c),
+                                     {
+                                         // uint32_t pCode0
+                                         Type::getInt32Ty(c),
+                                         // uint32_t pCode1
+                                         Type::getInt32Ty(c),
+                                         // uint32_t pCode2
+                                         Type::getInt32Ty(c),
+                                     },
+                                     false),
+                   GlobalValue::ExternalLinkage, "DebugSPIRVOp", m);
 
   Function::Create(
       FunctionType::get(Type::getVoidTy(c),
@@ -400,6 +414,15 @@ void ShutdownLLVM()
   delete context;
 }
 
+extern "C" __declspec(dllexport) void DebugSPIRVOp(uint32_t pCode0, uint32_t pCode1, uint32_t pCode2)
+{
+#if DEBUG_SPIRV
+  spv::Op opcode = spv::Op(pCode0 & spv::OpCodeMask);
+
+  uint16_t WordCount = pCode0 >> spv::WordCountShift;
+#endif
+}
+
 extern "C" __declspec(dllexport) void Float4x4TimesVec4(float *fmat, const float4 &vec, float4 &out)
 {
   for(int row = 0; row < 4; row++)
@@ -631,6 +654,7 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
 
   std::vector<Function *> functions;
   Function *curfunc = NULL;
+  BasicBlock *curlabel = NULL;
   Argument *functionargs = NULL;
 
   IRBuilder<> builder(c, ConstantFolder());
@@ -1001,6 +1025,18 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
 
     spv::Op opcode = spv::Op(pCode[0] & spv::OpCodeMask);
 
+#if DEBUG_SPIRV
+    if(curlabel)
+    {
+      builder.CreateCall(m->getFunction("DebugSPIRVOp"),
+                         {
+                             ConstantInt::get(Type::getInt32Ty(c), pCode[0]),
+                             ConstantInt::get(Type::getInt32Ty(c), WordCount >= 2 ? pCode[1] : ~0U),
+                             ConstantInt::get(Type::getInt32Ty(c), WordCount >= 3 ? pCode[2] : ~0U),
+                         });
+    }
+#endif
+
     switch(opcode)
     {
       case spv::OpCapability:
@@ -1151,11 +1187,13 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
       {
         assert(curfunc);
         builder.SetInsertPoint(labels[pCode[1]]);
+        curlabel = labels[pCode[1]];
         break;
       }
       case spv::OpBranch:
       {
         builder.CreateBr(labels[pCode[1]]);
+        curlabel = NULL;
         break;
       }
       case spv::OpSelectionMerge:
@@ -1166,6 +1204,7 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
       case spv::OpBranchConditional:
       {
         builder.CreateCondBr(values[pCode[1]], labels[pCode[2]], labels[pCode[3]]);
+        curlabel = NULL;
         break;
       }
       case spv::OpFunctionCall:
@@ -1181,12 +1220,14 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
       {
         assert(curfunc);
         builder.CreateRetVoid();
+        curlabel = NULL;
         break;
       }
       case spv::OpReturnValue:
       {
         assert(curfunc);
         builder.CreateRet(values[pCode[1]]);
+        curlabel = NULL;
         break;
       }
 

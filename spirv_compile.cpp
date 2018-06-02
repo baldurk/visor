@@ -2283,15 +2283,31 @@ LLVMFunction *CompileFunction(const uint32_t *pCode, size_t codeSize)
         }
         else if(ext.decoration.dec == spv::DecorationBinding)
         {
-          Function *getfunc = m->getFunction("GetDescriptorImage");
+          if(blocks.find(id) != blocks.end())
+          {
+            Value *byteptr =
+                builder.CreateCall(m->getFunction("GetDescriptorBufferPointer"),
+                                   {
+                                       gpustate, ConstantInt::get(Type::getInt32Ty(c), descset[id]),
+                                       ConstantInt::get(Type::getInt32Ty(c), ext.decoration.param),
+                                   });
 
-          Value *imgptr = builder.CreateCall(
-              getfunc, {
-                           gpustate, ConstantInt::get(Type::getInt32Ty(c), descset[id]),
-                           ConstantInt::get(Type::getInt32Ty(c), ext.decoration.param),
-                       });
+            Value *bufptr =
+                builder.CreatePointerCast(byteptr, val->getType()->getPointerElementType());
 
-          builder.CreateStore(imgptr, val);
+            builder.CreateStore(bufptr, val);
+          }
+          else
+          {
+            Value *imgptr =
+                builder.CreateCall(m->getFunction("GetDescriptorImage"),
+                                   {
+                                       gpustate, ConstantInt::get(Type::getInt32Ty(c), descset[id]),
+                                       ConstantInt::get(Type::getInt32Ty(c), ext.decoration.param),
+                                   });
+
+            builder.CreateStore(imgptr, val);
+          }
         }
         else if(ext.decoration.dec == spv::DecorationOffset &&
                 ext.storageClass == spv::StorageClassPushConstant)
